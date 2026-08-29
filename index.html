@@ -68,8 +68,8 @@
 
     <script>
         // --- 1. CONFIGURATION ---
-        const CLIENT_ID = 'YOUR_CLIENT_ID_HERE.apps.googleusercontent.com'; 
-        const SCOPES = 'https://www.googleapis.com/auth/drive.file'; // Gives access ONLY to files created by this app
+        const CLIENT_ID = '500297009261-i1aa5fekjptp3i1kgpst248knc18gvt6.apps.googleusercontent.com'; 
+        const SCOPES = 'https://www.googleapis.com/auth/drive.file'; 
         const FILE_NAME = 'my_personal_board.json';
 
         let tokenClient, fileId = null;
@@ -103,7 +103,6 @@
         document.getElementById('auth-btn').onclick = () => tokenClient.requestAccessToken({prompt: 'consent'});
 
         async function loadBoard() {
-            // Find existing board file
             const res = await gapi.client.drive.files.list({ q: `name='${FILE_NAME}' and trashed=false`, spaces: 'drive' });
             if (res.result.files && res.result.files.length > 0) {
                 fileId = res.result.files[0].id;
@@ -179,7 +178,7 @@
             ta.value = note.text;
             ta.placeholder = "Write a note...";
             ta.oninput = (e) => note.text = e.target.value;
-            ta.addEventListener('pointerdown', e => e.stopPropagation()); // Allow text selection without panning
+            ta.addEventListener('pointerdown', e => e.stopPropagation()); 
             
             let isDragging = false, nStartX, nStartY;
             header.addEventListener('pointerdown', (e) => {
