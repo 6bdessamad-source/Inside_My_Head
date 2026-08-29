@@ -20,7 +20,6 @@ body { margin:0; overflow:hidden; background:var(--bg); color:var(--text);
 #bg-layer { position:fixed; inset:0; z-index:0; pointer-events:none; }
 #viewport { width:100vw; height:100vh; position:relative; overflow:hidden; cursor:grab; z-index:1; }
 #viewport.panning { cursor:grabbing; }
-#viewport.creating { cursor:copy; }
 #canvas { position:absolute; top:0; left:0; width:0; height:0; transform-origin:0 0; will-change:transform; }
 #connSvg { position:absolute; top:0; left:0; overflow:visible; pointer-events:none; }
 .conn { stroke:var(--accent); stroke-width:2; fill:none; }
@@ -65,12 +64,29 @@ button:active { transform:scale(.95); }
 .node-header { height:20px; background:rgba(128,128,128,.08); border-bottom:1px solid var(--border);
   border-radius:8px 8px 0 0; cursor:grab; flex-shrink:0; }
 .node-header:active { cursor:grabbing; }
-.node-body { flex:1; padding:10px; position:relative; overflow:hidden; }
+.node-body { flex:1; padding:10px; position:relative; overflow:auto; display:flex; flex-direction:column; }
+
 .node textarea { width:100%; height:100%; background:transparent; border:none; color:var(--text);
-  resize:none; outline:none; font-family:inherit; font-size:14px; line-height:1.4; }
+  resize:none; outline:none; font-family:inherit; font-size:14px; line-height:1.4; cursor:text; }
+.node textarea[readonly] { cursor:default; user-select:none; }
+
 .node .label { width:100%; height:100%; outline:none; display:flex; align-items:center; justify-content:center;
   text-align:center; font-size:14px; overflow:auto; word-break:break-word; }
-.node img { width:100%; height:100%; object-fit:contain; display:block; pointer-events:none; }
+.node .label[contenteditable="false"] { cursor:default; user-select:none; }
+
+.node img { width:100%; height:100%; display:block; pointer-events:none; }
+
+/* Checklist */
+.checklist-item { display:flex; align-items:center; gap:8px; margin-bottom:4px; }
+.checklist-item input[type="checkbox"] { cursor:pointer; accent-color:var(--accent); }
+.checklist-item span { flex:1; outline:none; font-size:14px; }
+.checklist-item span[contenteditable="true"] { border-bottom:1px solid var(--accent); }
+.add-chk-btn { background:none; border:none; color:var(--accent); text-align:left; padding:4px 0; font-size:12px; cursor:pointer; margin-top:auto;}
+
+/* Table */
+.node table { width:100%; height:100%; border-collapse:collapse; table-layout:fixed; }
+.node td { border:1px solid var(--border); padding:4px; outline:none; text-align:center; font-size:13px; overflow:hidden; }
+.node td[contenteditable="true"] { background:rgba(255,255,255,0.05); }
 
 .node-tools { position:absolute; top:-14px; right:2px; display:none; gap:4px; z-index:5; }
 .node:hover .node-tools, .node.selected .node-tools { display:flex; }
@@ -96,58 +112,18 @@ button:active { transform:scale(.95); }
   padding:5px; border-radius:8px; border:1px solid var(--border); z-index:7; }
 .color-row.open { display:flex; }
 .swatch { width:16px; height:16px; border-radius:50%; cursor:pointer; border:1px solid rgba(0,0,0,.2); }
-
 #file-input { display:none; }
-
-#modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:2000; display:none; }
-#modal-backdrop.open { display:block; }
-#shortcuts-modal { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:2001;
-  background:var(--panel); backdrop-filter:blur(16px); border:1px solid var(--border); border-radius:14px;
-  padding:24px; width:min(520px, 90vw); max-height:80vh; overflow-y:auto; display:none;
-  box-shadow:0 20px 60px rgba(0,0,0,.5); }
-#shortcuts-modal.open { display:block; }
-#shortcuts-modal h3 { margin-top:0; }
-#shortcuts-modal .grp { margin-bottom:16px; }
-#shortcuts-modal .grp h4 { margin:0 0 8px 0; font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--accent); }
-#shortcuts-modal .row { display:flex; justify-content:space-between; gap:12px; padding:4px 0; font-size:13px; border-bottom:1px dashed var(--border); }
-#shortcuts-modal kbd { background:rgba(128,128,128,.2); border:1px solid var(--border); border-radius:4px; padding:1px 6px; font-size:12px; }
-#close-modal { position:absolute; top:14px; right:14px; }
 </style>
 </head>
 <body>
 <div id="bg-layer"></div>
 
 <div id="settings-panel">
-  <div>
-    <h4>Theme</h4>
-    <div class="opt-row" id="theme-row">
-      <button data-v="dark">Dark</button>
-      <button data-v="light">Light</button>
-    </div>
-  </div>
-  <div>
-    <h4>Background</h4>
-    <div class="opt-row" id="bg-row">
-      <button data-v="none">None</button>
-      <button data-v="dots">Dots</button>
-      <button data-v="grid">Grid</button>
-    </div>
-  </div>
-  <div>
-    <h4>Connector style</h4>
-    <div class="opt-row" id="line-row">
-      <button data-v="straight">Straight</button>
-      <button data-v="curved">Curved</button>
-    </div>
-  </div>
-  <div class="switch-row">
-    <span>Snap to grid</span>
-    <input type="checkbox" id="snap-toggle">
-  </div>
-  <div style="display:flex; gap:6px;">
-    <button id="export-btn" style="flex:1;">Export</button>
-    <button id="import-btn" style="flex:1;">Import</button>
-  </div>
+  <div><h4>Theme</h4><div class="opt-row" id="theme-row"><button data-v="dark">Dark</button><button data-v="light">Light</button></div></div>
+  <div><h4>Background</h4><div class="opt-row" id="bg-row"><button data-v="none">None</button><button data-v="dots">Dots</button><button data-v="grid">Grid</button></div></div>
+  <div><h4>Connector style</h4><div class="opt-row" id="line-row"><button data-v="straight">Straight</button><button data-v="curved">Curved</button></div></div>
+  <div class="switch-row"><span>Snap to grid</span><input type="checkbox" id="snap-toggle"></div>
+  <div style="display:flex; gap:6px;"><button id="export-btn" style="flex:1;">Export</button><button id="import-btn" style="flex:1;">Import</button></div>
   <button id="clear-btn" style="color:var(--danger); border-color:var(--danger);">Clear board</button>
 </div>
 
@@ -172,61 +148,14 @@ button:active { transform:scale(.95); }
 <div id="ui-bar">
   <button id="auth-btn">Connect Drive</button>
   <button id="save-btn" style="display:none;">Sync</button>
-  <button class="icon-btn" id="note-btn" title="Add sticky note (hold N + click)">N</button>
+  <button class="icon-btn" id="note-btn" title="Add note (N)">N</button>
   <button class="icon-btn" id="shape-btn" title="Add shape">◇</button>
-  <button class="icon-btn" id="image-btn" title="Add image (hold I + click, drop, or paste)">I</button>
+  <button class="icon-btn" id="chk-btn" title="Add checklist (T)">☑</button>
+  <button class="icon-btn" id="tbl-btn" title="Add table (Y)">▦</button>
+  <button class="icon-btn" id="image-btn" title="Add image (I)">I</button>
   <button class="icon-btn" id="settings-btn" title="Settings">⚙️</button>
-  <div id="zoom-group">
-    <button class="icon-btn" id="zoom-out">−</button>
-    <span id="zoom-label">100%</span>
-    <button class="icon-btn" id="zoom-in">+</button>
-  </div>
+  <div id="zoom-group"><button class="icon-btn" id="zoom-out">−</button><span id="zoom-label">100%</span><button class="icon-btn" id="zoom-in">+</button></div>
   <button id="reset-view-btn">Reset view</button>
-  <button class="icon-btn" id="help-btn" title="Keyboard shortcuts">?</button>
-</div>
-
-<div id="modal-backdrop"></div>
-<div id="shortcuts-modal">
-  <button class="icon-btn" id="close-modal">✕</button>
-  <h3>Shortcuts</h3>
-  <div class="grp">
-    <h4>Pan &amp; zoom</h4>
-    <div class="row"><span>Pan canvas</span><span><kbd>drag</kbd> empty space</span></div>
-    <div class="row"><span>Zoom</span><span><kbd>scroll</kbd></span></div>
-    <div class="row"><span>Reset view</span><span>toolbar button</span></div>
-  </div>
-  <div class="grp">
-    <h4>Create</h4>
-    <div class="row"><span>Note</span><span>hold <kbd>N</kbd> + click canvas</span></div>
-    <div class="row"><span>Rectangle</span><span>hold <kbd>R</kbd> + click canvas</span></div>
-    <div class="row"><span>Circle</span><span>hold <kbd>C</kbd> + click canvas</span></div>
-    <div class="row"><span>Diamond</span><span>hold <kbd>M</kbd> + click canvas</span></div>
-    <div class="row"><span>Image</span><span>hold <kbd>I</kbd> + click, drag &amp; drop, or <kbd>Ctrl</kbd>+<kbd>V</kbd></span></div>
-  </div>
-  <div class="grp">
-    <h4>Move &amp; edit</h4>
-    <div class="row"><span>Move node</span><span>drag its top bar</span></div>
-    <div class="row"><span>Duplicate while dragging</span><span><kbd>Alt</kbd> + drag</span></div>
-    <div class="row"><span>Duplicate selected</span><span><kbd>Ctrl</kbd>+<kbd>D</kbd></span></div>
-    <div class="row"><span>Nudge selected</span><span>Arrow keys (<kbd>Shift</kbd> = x10)</span></div>
-    <div class="row"><span>Delete selected</span><span><kbd>Del</kbd> / <kbd>Backspace</kbd></span></div>
-  </div>
-  <div class="grp">
-    <h4>Align selected</h4>
-    <div class="row"><span>Top / Left / Bottom / Right</span><span><kbd>Shift</kbd>+<kbd>W</kbd>/<kbd>A</kbd>/<kbd>S</kbd>/<kbd>D</kbd></span></div>
-  </div>
-  <div class="grp">
-    <h4>Connect (mindmap)</h4>
-    <div class="row"><span>Draw arrow</span><span>drag a node's dot handle, or <kbd>Ctrl</kbd> + drag on a node</span></div>
-    <div class="row"><span>Straight / curved lines</span><span>Settings panel</span></div>
-  </div>
-  <div class="grp">
-    <h4>Text &amp; misc</h4>
-    <div class="row"><span>Highlight text in a shape label</span><span>select text, <kbd>Ctrl</kbd>+<kbd>H</kbd></span></div>
-    <div class="row"><span>Highlight whole node</span><span>select it, <kbd>Ctrl</kbd>+<kbd>H</kbd></span></div>
-    <div class="row"><span>Deselect / cancel</span><span><kbd>Esc</kbd></span></div>
-    <div class="row"><span>This menu</span><span><kbd>?</kbd></span></div>
-  </div>
 </div>
 
 <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoad()"></script>
@@ -243,7 +172,7 @@ let nodes = [];
 let connections = [];
 let theme = 'dark', bgStyle = 'dots', lineStyle = 'straight', snapEnabled = false;
 let panX = 60, panY = 60, zoom = 1;
-let selectedId = null;
+let selectedIds = new Set(); 
 let idSeed = 1;
 const uid = () => 'n' + (Date.now().toString(36)) + (idSeed++);
 
@@ -253,12 +182,11 @@ const connSvg = document.getElementById('connSvg');
 const bgLayer = document.getElementById('bg-layer');
 
 let dragState = null, resizeState = null, connecting = null;
-let lastMouseWorld = null;
 let pendingImagePos = null;
 const keysDown = {};
-const isTyping = () => { const a = document.activeElement; return !!(a && (a.tagName === 'TEXTAREA' || a.isContentEditable)); };
+const isTyping = () => { const a = document.activeElement; return !!(a && (a.tagName === 'TEXTAREA' || a.isContentEditable || a.tagName === 'INPUT')); };
 
-// ===================== THEME / BACKGROUND =====================
+// ===================== THEME & TRANSFORM =====================
 function applyTheme() {
   document.body.setAttribute('data-theme', theme);
   document.querySelectorAll('#theme-row button').forEach(b => b.classList.toggle('active', b.dataset.v === theme));
@@ -267,20 +195,14 @@ function applyTheme() {
 function updateBackground() {
   document.querySelectorAll('#bg-row button').forEach(b => b.classList.toggle('active', b.dataset.v === bgStyle));
   document.querySelectorAll('#line-row button').forEach(b => b.classList.toggle('active', b.dataset.v === lineStyle));
-  const size = 26 * zoom;
-  const px = ((panX % size) + size) % size;
-  const py = ((panY % size) + size) % size;
+  const size = 26 * zoom, px = ((panX % size) + size) % size, py = ((panY % size) + size) % size;
   if (bgStyle === 'none') { bgLayer.style.backgroundImage = 'none'; return; }
-  if (bgStyle === 'dots') {
-    bgLayer.style.backgroundImage = `radial-gradient(circle, var(--dot) 1.5px, transparent 1.6px)`;
-  } else {
-    bgLayer.style.backgroundImage = `linear-gradient(var(--dot) 1px, transparent 1px), linear-gradient(90deg, var(--dot) 1px, transparent 1px)`;
-  }
+  bgLayer.style.backgroundImage = bgStyle === 'dots' 
+    ? `radial-gradient(circle, var(--dot) 1.5px, transparent 1.6px)` 
+    : `linear-gradient(var(--dot) 1px, transparent 1px), linear-gradient(90deg, var(--dot) 1px, transparent 1px)`;
   bgLayer.style.backgroundSize = `${size}px ${size}px`;
   bgLayer.style.backgroundPosition = `${px}px ${py}px`;
 }
-
-// ===================== VIEWPORT TRANSFORM =====================
 function applyCanvasTransform() {
   canvas.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
   document.getElementById('zoom-label').textContent = Math.round(zoom * 100) + '%';
@@ -292,30 +214,36 @@ function screenToWorld(cx, cy) {
 }
 function centerWorld() { return screenToWorld(window.innerWidth / 2, window.innerHeight / 2); }
 
-// pan + create-on-click
-let isPanning = false, panStartX, panStartY;
+// ===================== INPUT & PANNING =====================
+let isPanning = false, panStartX, panStartY, mouseMoved = false;
+
 viewport.addEventListener('pointerdown', (e) => {
+  // If clicked directly on canvas background, deselect all.
   if (e.target === viewport || e.target === canvas || e.target === connSvg) {
+    deselectAll();
     const wp = screenToWorld(e.clientX, e.clientY);
     if (keysDown['n']) return createNote(wp);
     if (keysDown['r']) return createShape('rect', wp);
-    if (keysDown['c']) return createShape('circle', wp);
-    if (keysDown['m']) return createShape('diamond', wp);
+    if (keysDown['t']) return createChecklist(wp);
+    if (keysDown['y']) return createTable(wp);
     if (keysDown['i']) { pendingImagePos = wp; return document.getElementById('file-input').click(); }
-    isPanning = true; panStartX = e.clientX - panX; panStartY = e.clientY - panY;
+    
+    isPanning = true; mouseMoved = false;
+    panStartX = e.clientX - panX; panStartY = e.clientY - panY;
     viewport.classList.add('panning');
-    deselect();
   }
 });
 window.addEventListener('pointermove', (e) => {
-  lastMouseWorld = screenToWorld(e.clientX, e.clientY);
+  mouseMoved = true;
   if (isPanning) { panX = e.clientX - panStartX; panY = e.clientY - panStartY; applyCanvasTransform(); return; }
   if (dragState) {
     const wp = screenToWorld(e.clientX, e.clientY);
-    let nx = wp.x - dragState.offX, ny = wp.y - dragState.offY;
-    if (snapEnabled) { nx = Math.round(nx / 20) * 20; ny = Math.round(ny / 20) * 20; }
-    dragState.node.x = nx; dragState.node.y = ny;
-    dragState.el.style.transform = `translate(${nx}px, ${ny}px)`;
+    dragState.items.forEach(d => {
+      let nx = wp.x - d.offX, ny = wp.y - d.offY;
+      if (snapEnabled) { nx = Math.round(nx / 20) * 20; ny = Math.round(ny / 20) * 20; }
+      d.node.x = nx; d.node.y = ny;
+      d.el.style.transform = `translate(${nx}px, ${ny}px)`;
+    });
     drawConnections();
   }
   if (resizeState) {
@@ -346,44 +274,50 @@ window.addEventListener('pointerup', (e) => {
   }
 });
 
-// zoom (wheel, centered on cursor)
 viewport.addEventListener('wheel', (e) => {
   e.preventDefault();
   const before = screenToWorld(e.clientX, e.clientY);
-  const factor = e.deltaY < 0 ? 1.1 : 0.9;
-  zoom = Math.min(3, Math.max(0.2, zoom * factor));
+  zoom = Math.min(3, Math.max(0.2, zoom * (e.deltaY < 0 ? 1.1 : 0.9)));
   const r = viewport.getBoundingClientRect();
-  panX = e.clientX - r.left - before.x * zoom;
-  panY = e.clientY - r.top - before.y * zoom;
+  panX = e.clientX - r.left - before.x * zoom; panY = e.clientY - r.top - before.y * zoom;
   applyCanvasTransform();
 }, { passive: false });
-
 document.getElementById('zoom-in').onclick = () => { zoom = Math.min(3, zoom * 1.2); applyCanvasTransform(); };
 document.getElementById('zoom-out').onclick = () => { zoom = Math.max(0.2, zoom / 1.2); applyCanvasTransform(); };
 document.getElementById('reset-view-btn').onclick = () => { panX = 60; panY = 60; zoom = 1; applyCanvasTransform(); };
 
-// ===================== DRAG / RESIZE / CONNECT HELPERS =====================
-function beginNodeDrag(node, el, e, duplicate) {
-  let targetNode = node, targetEl = el;
-  if (duplicate) {
-    const clone = { ...node, id: uid() };
-    nodes.push(clone);
-    renderNode(clone);
-    targetEl = canvas.querySelector(`.node[data-id="${clone.id}"]`);
-    targetNode = clone;
-  }
-  select(targetNode.id);
-  const wp = screenToWorld(e.clientX, e.clientY);
-  dragState = { node: targetNode, el: targetEl, offX: wp.x - targetNode.x, offY: wp.y - targetNode.y };
+// ===================== SELECTION & DRAG LOGIC =====================
+function select(id, shiftKey = false) {
+  if (!shiftKey) deselectAll();
+  selectedIds.add(id);
+  updateSelectionUI();
 }
-function startConnector(fromId, e) {
+function deselectAll() {
+  selectedIds.clear();
+  updateSelectionUI();
+}
+function updateSelectionUI() {
+  canvas.querySelectorAll('.node').forEach(n => n.classList.toggle('selected', selectedIds.has(n.dataset.id)));
+}
+
+function beginDrag(e, baseId, duplicate) {
+  if (duplicate) {
+    const originalIds = Array.from(selectedIds);
+    deselectAll();
+    originalIds.forEach(id => {
+      const orig = nodes.find(n => n.id === id);
+      const clone = JSON.parse(JSON.stringify(orig));
+      clone.id = uid(); clone.x += 20; clone.y += 20;
+      nodes.push(clone); renderNode(clone); select(clone.id, true);
+    });
+  }
   const wp = screenToWorld(e.clientX, e.clientY);
-  const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-  line.setAttribute('class', 'temp-line');
-  line.setAttribute('x1', wp.x); line.setAttribute('y1', wp.y);
-  line.setAttribute('x2', wp.x); line.setAttribute('y2', wp.y);
-  connSvg.appendChild(line);
-  connecting = { fromId, line };
+  dragState = {
+    items: Array.from(selectedIds).map(id => {
+      const n = nodes.find(x => x.id === id);
+      return { node: n, el: canvas.querySelector(`[data-id="${id}"]`), offX: wp.x - n.x, offY: wp.y - n.y };
+    })
+  };
 }
 
 // ===================== NODE RENDERING =====================
@@ -395,94 +329,121 @@ function renderAll() {
 
 function renderNode(node) {
   const el = document.createElement('div');
-  el.className = 'node' + (node.highlighted ? ' highlighted' : '');
+  el.className = 'node' + (node.highlighted ? ' highlighted' : '') + (selectedIds.has(node.id) ? ' selected' : '');
   el.dataset.id = node.id;
-  el.style.width = node.w + 'px';
-  el.style.height = node.h + 'px';
+  el.style.width = node.w + 'px'; el.style.height = node.h + 'px';
   el.style.transform = `translate(${node.x}px, ${node.y}px)`;
   if (node.type !== 'image') el.style.background = node.color || 'var(--surface)';
 
-  const header = document.createElement('div');
-  header.className = 'node-header';
-  el.appendChild(header);
-
-  const body = document.createElement('div');
-  body.className = 'node-body';
+  const header = document.createElement('div'); header.className = 'node-header'; el.appendChild(header);
+  const body = document.createElement('div'); body.className = 'node-body';
   body.style.padding = node.type === 'image' ? '0' : '10px';
 
+  // Build content based on type
   if (node.type === 'note') {
     const ta = document.createElement('textarea');
-    ta.value = node.text || '';
-    ta.placeholder = 'Write a note...';
+    ta.value = node.text || ''; ta.readOnly = true; ta.placeholder = 'Double-click to edit...';
     ta.oninput = e => node.text = e.target.value;
-    ta.addEventListener('pointerdown', e => e.stopPropagation());
+    ta.ondblclick = (e) => { e.stopPropagation(); ta.readOnly = false; ta.focus(); };
+    ta.onblur = () => ta.readOnly = true;
+    ta.onpointerdown = e => { if(ta.readOnly) e.preventDefault(); else e.stopPropagation(); };
     body.appendChild(ta);
-  } else if (node.type === 'shape') {
+  } 
+  else if (node.type === 'shape') {
     if (node.shape === 'circle') el.style.borderRadius = '50%';
     if (node.shape === 'diamond') { el.style.clipPath = 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)'; header.style.display = 'none'; }
     const label = document.createElement('div');
-    label.className = 'label';
-    label.contentEditable = true;
-    label.innerText = node.text || '';
-    label.addEventListener('pointerdown', e => e.stopPropagation());
-    label.addEventListener('input', () => node.text = label.innerText);
+    label.className = 'label'; label.contentEditable = "false"; label.innerText = node.text || '';
+    label.oninput = () => node.text = label.innerText;
+    label.ondblclick = (e) => { e.stopPropagation(); label.contentEditable = "true"; label.focus(); };
+    label.onblur = () => label.contentEditable = "false";
+    label.onpointerdown = e => { if(label.contentEditable === "false") e.preventDefault(); else e.stopPropagation(); };
     body.appendChild(label);
-  } else if (node.type === 'image') {
-    const img = document.createElement('img');
-    img.src = node.src;
+  } 
+  else if (node.type === 'image') {
+    const img = document.createElement('img'); img.src = node.src;
+    img.style.objectFit = node.mode || 'contain';
     body.appendChild(img);
+  }
+  else if (node.type === 'checklist') {
+    const renderItems = () => {
+      body.innerHTML = '';
+      node.items.forEach((item, i) => {
+        const row = document.createElement('div'); row.className = 'checklist-item';
+        const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = item.done;
+        cb.onchange = () => item.done = cb.checked;
+        const txt = document.createElement('span'); txt.innerText = item.text; txt.contentEditable = "false";
+        txt.ondblclick = (e) => { e.stopPropagation(); txt.contentEditable = "true"; txt.focus(); };
+        txt.onblur = () => { txt.contentEditable = "false"; item.text = txt.innerText; };
+        txt.onpointerdown = e => { if(txt.contentEditable==="true") e.stopPropagation(); };
+        row.append(cb, txt); body.appendChild(row);
+      });
+      const addBtn = document.createElement('button'); addBtn.className = 'add-chk-btn'; addBtn.innerText = '+ Add item';
+      addBtn.onclick = (e) => { e.stopPropagation(); node.items.push({text:'New item', done:false}); renderItems(); };
+      body.appendChild(addBtn);
+    };
+    renderItems();
+  }
+  else if (node.type === 'table') {
+    const tbl = document.createElement('table');
+    node.rows.forEach((rData, rIdx) => {
+      const tr = document.createElement('tr');
+      rData.forEach((cText, cIdx) => {
+        const td = document.createElement('td'); td.innerText = cText; td.contentEditable = "false";
+        td.ondblclick = (e) => { e.stopPropagation(); td.contentEditable = "true"; td.focus(); };
+        td.onblur = () => { td.contentEditable = "false"; node.rows[rIdx][cIdx] = td.innerText; };
+        td.onpointerdown = e => { if(td.contentEditable==="true") e.stopPropagation(); };
+        tr.appendChild(td);
+      });
+      tbl.appendChild(tr);
+    });
+    body.appendChild(tbl);
   }
   el.appendChild(body);
 
-  const startDrag = (e) => {
-    if (e.ctrlKey) { e.stopPropagation(); startConnector(node.id, e); return; }
+  // Interaction wiring
+  const handlePointerDown = (e) => {
+    if (e.ctrlKey) { e.stopPropagation(); connecting = { fromId: node.id, line: createTempLine(e) }; return; }
     e.stopPropagation();
-    beginNodeDrag(node, el, e, e.altKey);
+    if (!selectedIds.has(node.id)) select(node.id, e.shiftKey);
+    beginDrag(e, node.id, e.altKey);
   };
-  header.addEventListener('pointerdown', startDrag);
-  if (node.shape === 'diamond') el.addEventListener('pointerdown', (e) => { if (e.target === el) startDrag(e); });
+  header.addEventListener('pointerdown', handlePointerDown);
+  el.addEventListener('pointerdown', (e) => { if(e.target === el || e.target === body) handlePointerDown(e); });
+  if (node.shape === 'diamond') el.addEventListener('pointerdown', handlePointerDown);
 
-  el.addEventListener('pointerdown', (e) => {
-    if (e.ctrlKey) { e.stopPropagation(); startConnector(node.id, e); return; }
-    if (!dragState) select(node.id);
-  });
-
-  // resize
-  const rh = document.createElement('div');
-  rh.className = 'resize-handle';
+  // Resize
+  const rh = document.createElement('div'); rh.className = 'resize-handle';
   rh.addEventListener('pointerdown', (e) => {
-    e.stopPropagation(); select(node.id);
+    e.stopPropagation(); select(node.id, false);
     resizeState = { node, el, startW: node.w, startH: node.h, startWorld: screenToWorld(e.clientX, e.clientY) };
   });
   el.appendChild(rh);
 
-  // connector handles
+  // Connection handles
   ['n', 's', 'e', 'w'].forEach(dir => {
-    const h = document.createElement('div');
-    h.className = 'handle ' + dir;
-    h.addEventListener('pointerdown', (e) => { e.stopPropagation(); startConnector(node.id, e); });
+    const h = document.createElement('div'); h.className = 'handle ' + dir;
+    h.addEventListener('pointerdown', e => { e.stopPropagation(); connecting = { fromId: node.id, line: createTempLine(e) }; });
     el.appendChild(h);
   });
 
-  // tools: delete + link + color
-  const tools = document.createElement('div');
-  tools.className = 'node-tools';
+  // Toolbar
+  const tools = document.createElement('div'); tools.className = 'node-tools';
   const del = document.createElement('span'); del.textContent = '✕';
-  del.onpointerdown = e => e.stopPropagation();
-  del.onclick = () => deleteNode(node.id);
+  del.onpointerdown = e => e.stopPropagation(); del.onclick = () => deleteSelected();
   tools.appendChild(del);
 
-  const linkBtn = document.createElement('span'); linkBtn.textContent = '🔗';
-  linkBtn.onpointerdown = e => e.stopPropagation();
-  linkBtn.onclick = () => {
-    const url = prompt('Link URL (leave blank to remove):', node.link || '');
-    if (url === null) return;
-    node.link = url.trim();
-    renderAll();
-  };
-  tools.appendChild(linkBtn);
-
-  if (node.type !== 'image') {
+  if (node.type === 'image') {
+    const fitBtn = document.createElement('span'); fitBtn.textContent = '🖼️';
+    fitBtn.title = "Cycle Image Mode";
+    fitBtn.onpointerdown = e => e.stopPropagation();
+    fitBtn.onclick = () => {
+      const modes = ['contain', 'cover', 'fill'];
+      node.mode = modes[(modes.indexOf(node.mode || 'contain') + 1) % modes.length];
+      el.querySelector('img').style.objectFit = node.mode;
+    };
+    tools.appendChild(fitBtn);
+  } else {
     const colorBtn = document.createElement('span'); colorBtn.textContent = '🎨';
     colorBtn.onpointerdown = e => e.stopPropagation();
     colorBtn.onclick = () => colorRow.classList.toggle('open');
@@ -490,306 +451,127 @@ function renderNode(node) {
   }
   el.appendChild(tools);
 
-  const colorRow = document.createElement('div');
-  colorRow.className = 'color-row';
+  const colorRow = document.createElement('div'); colorRow.className = 'color-row';
   ['#1e1e1e', '#d4af37', '#e57373', '#64b5f6', '#81c784', '#ffb74d', '#ba68c8'].forEach(c => {
-    const sw = document.createElement('div');
-    sw.className = 'swatch'; sw.style.background = c;
+    const sw = document.createElement('div'); sw.className = 'swatch'; sw.style.background = c;
     sw.onpointerdown = e => e.stopPropagation();
-    sw.onclick = () => { node.color = c; el.style.background = c; colorRow.classList.remove('open'); };
+    sw.onclick = () => { selectedIds.forEach(id => { const n = nodes.find(x=>x.id===id); n.color=c; canvas.querySelector(`[data-id="${id}"]`).style.background=c; }); colorRow.classList.remove('open'); };
     colorRow.appendChild(sw);
   });
   el.appendChild(colorRow);
 
-  if (node.link) {
-    const badge = document.createElement('div');
-    badge.className = 'link-badge'; badge.textContent = '🔗 open';
-    badge.onpointerdown = e => e.stopPropagation();
-    badge.onclick = () => window.open(/^https?:\/\//.test(node.link) ? node.link : 'https://' + node.link, '_blank');
-    el.appendChild(badge);
-  }
-
   canvas.appendChild(el);
 }
 
-function select(id) {
-  selectedId = id;
-  canvas.querySelectorAll('.node').forEach(n => n.classList.toggle('selected', n.dataset.id === id));
+function createTempLine(e) {
+  const wp = screenToWorld(e.clientX, e.clientY);
+  const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+  line.setAttribute('class', 'temp-line'); line.setAttribute('x1', wp.x); line.setAttribute('y1', wp.y);
+  line.setAttribute('x2', wp.x); line.setAttribute('y2', wp.y);
+  connSvg.appendChild(line); return line;
 }
-function deselect() { selectedId = null; canvas.querySelectorAll('.node').forEach(n => n.classList.remove('selected')); }
 
-function deleteNode(id) {
-  nodes = nodes.filter(n => n.id !== id);
-  connections = connections.filter(c => c.from !== id && c.to !== id);
-  if (selectedId === id) selectedId = null;
-  renderAll();
-}
-function duplicateNode(id) {
-  const n = nodes.find(x => x.id === id); if (!n) return;
-  const clone = { ...n, id: uid(), x: n.x + 24, y: n.y + 24 };
-  nodes.push(clone); renderAll(); select(clone.id);
+// ===================== NODE OPERATIONS =====================
+function deleteSelected() {
+  nodes = nodes.filter(n => !selectedIds.has(n.id));
+  connections = connections.filter(c => !selectedIds.has(c.from) && !selectedIds.has(c.to));
+  deselectAll(); renderAll();
 }
 function nudge(dir, big) {
   const step = big ? 10 : 1;
-  const n = nodes.find(x => x.id === selectedId); if (!n) return;
-  if (dir === 'arrowup') n.y -= step;
-  if (dir === 'arrowdown') n.y += step;
-  if (dir === 'arrowleft') n.x -= step;
-  if (dir === 'arrowright') n.x += step;
-  const el = canvas.querySelector(`.node[data-id="${n.id}"]`);
-  if (el) el.style.transform = `translate(${n.x}px, ${n.y}px)`;
+  selectedIds.forEach(id => {
+    const n = nodes.find(x => x.id === id); if (!n) return;
+    if (dir === 'arrowup') n.y -= step; if (dir === 'arrowdown') n.y += step;
+    if (dir === 'arrowleft') n.x -= step; if (dir === 'arrowright') n.x += step;
+    canvas.querySelector(`.node[data-id="${n.id}"]`).style.transform = `translate(${n.x}px, ${n.y}px)`;
+  });
   drawConnections();
-}
-function alignNode(key) {
-  const n = nodes.find(x => x.id === selectedId); if (!n) return;
-  const margin = 30;
-  if (key === 'w') n.y = screenToWorld(0, margin).y;
-  if (key === 's') n.y = screenToWorld(0, window.innerHeight - margin).y - n.h;
-  if (key === 'a') n.x = screenToWorld(margin, 0).x;
-  if (key === 'd') n.x = screenToWorld(window.innerWidth - margin, 0).x - n.w;
-  const el = canvas.querySelector(`.node[data-id="${n.id}"]`);
-  if (el) el.style.transform = `translate(${n.x}px, ${n.y}px)`;
-  drawConnections();
-}
-function toggleNodeHighlight(id) {
-  const n = nodes.find(x => x.id === id); if (!n) return;
-  n.highlighted = !n.highlighted;
-  const el = canvas.querySelector(`.node[data-id="${id}"]`);
-  if (el) el.classList.toggle('highlighted', n.highlighted);
 }
 
 // ===================== KEYBOARD SHORTCUTS =====================
 document.addEventListener('keydown', (e) => {
   keysDown[e.key.toLowerCase()] = true;
-  if (e.key === 'Escape') {
-    deselect(); closeMenus();
-    if (connecting) { connecting.line.remove(); connecting = null; }
-    return;
-  }
-  if (e.ctrlKey && e.key.toLowerCase() === 'h') {
-    e.preventDefault();
-    const active = document.activeElement;
-    if (active && active.isContentEditable) document.execCommand('hiliteColor', false, '#ffe066');
-    else if (selectedId) toggleNodeHighlight(selectedId);
-    return;
-  }
-  if (e.key === '?' && !isTyping()) { toggleShortcuts(); return; }
+  if (e.key === 'Escape') { deselectAll(); document.getElementById('settings-panel').classList.remove('open'); document.getElementById('shape-menu').classList.remove('open'); if (connecting) { connecting.line.remove(); connecting = null; } return; }
   if (isTyping()) return;
-  if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) { deleteNode(selectedId); return; }
-  if (e.ctrlKey && e.key.toLowerCase() === 'd' && selectedId) { e.preventDefault(); duplicateNode(selectedId); return; }
-  if (e.shiftKey && ['w', 'a', 's', 'd'].includes(e.key.toLowerCase()) && selectedId) { alignNode(e.key.toLowerCase()); return; }
+  if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIds.size > 0) { deleteSelected(); return; }
   const arrowKey = e.key.toLowerCase();
-  if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(arrowKey) && selectedId) { e.preventDefault(); nudge(arrowKey, e.shiftKey); return; }
+  if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(arrowKey) && selectedIds.size > 0) { e.preventDefault(); nudge(arrowKey, e.shiftKey); }
 });
-document.addEventListener('keyup', (e) => { keysDown[e.key.toLowerCase()] = false; });
+document.addEventListener('keyup', (e) => keysDown[e.key.toLowerCase()] = false);
 
-// ===================== CONNECTORS =====================
-function nodeCenter(n) { return { x: n.x + n.w / 2, y: n.y + n.h / 2 }; }
+// ===================== DRAW CONNECTIONS =====================
 function drawConnections() {
   connSvg.querySelectorAll('.conn').forEach(l => l.remove());
   connections.forEach(c => {
     const a = nodes.find(n => n.id === c.from), b = nodes.find(n => n.id === c.to);
     if (!a || !b) return;
-    const p1 = nodeCenter(a), p2 = nodeCenter(b);
+    const p1 = { x: a.x + a.w/2, y: a.y + a.h/2 }, p2 = { x: b.x + b.w/2, y: b.y + b.h/2 };
     let el;
     if (lineStyle === 'curved') {
-      const mx = (p1.x + p2.x) / 2, my = (p1.y + p2.y) / 2;
-      const dx = p2.x - p1.x, dy = p2.y - p1.y;
-      const len = Math.hypot(dx, dy) || 1;
-      const bend = Math.min(60, len * 0.25);
-      const cx = mx + (-dy / len) * bend, cy = my + (dx / len) * bend;
+      const mx = (p1.x + p2.x)/2, my = (p1.y + p2.y)/2, dx = p2.x - p1.x, dy = p2.y - p1.y, len = Math.hypot(dx, dy) || 1, bend = Math.min(60, len * 0.25);
       el = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      el.setAttribute('d', `M ${p1.x},${p1.y} Q ${cx},${cy} ${p2.x},${p2.y}`);
+      el.setAttribute('d', `M ${p1.x},${p1.y} Q ${mx + (-dy/len)*bend},${my + (dx/len)*bend} ${p2.x},${p2.y}`);
     } else {
       el = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-      el.setAttribute('x1', p1.x); el.setAttribute('y1', p1.y);
-      el.setAttribute('x2', p2.x); el.setAttribute('y2', p2.y);
+      el.setAttribute('x1', p1.x); el.setAttribute('y1', p1.y); el.setAttribute('x2', p2.x); el.setAttribute('y2', p2.y);
     }
-    el.setAttribute('class', 'conn');
-    el.setAttribute('marker-end', 'url(#arrow)');
+    el.setAttribute('class', 'conn'); el.setAttribute('marker-end', 'url(#arrow)');
     connSvg.insertBefore(el, connSvg.firstChild.nextSibling);
   });
 }
 
-// ===================== ADD NODES =====================
-function createNote(pos) {
-  const c = pos || centerWorld();
-  const node = { id: uid(), type: 'note', x: c.x - 120, y: c.y - 100, w: 240, h: 200, text: '', color: 'var(--surface)' };
-  nodes.push(node); renderNode(node); select(node.id);
-}
-function createShape(shape, pos) {
-  const c = pos || centerWorld();
-  const node = { id: uid(), type: 'shape', shape, x: c.x - 80, y: c.y - 60, w: 160, h: 120, text: '', color: 'var(--surface)' };
-  nodes.push(node); renderNode(node); select(node.id);
-}
+// ===================== CREATORS =====================
+function createNote(pos) { const c = pos || centerWorld(); const n = { id: uid(), type: 'note', x: c.x-120, y: c.y-100, w: 240, h: 200, text: '', color: 'var(--surface)' }; nodes.push(n); renderNode(n); select(n.id); }
+function createShape(shape, pos) { const c = pos || centerWorld(); const n = { id: uid(), type: 'shape', shape, x: c.x-80, y: c.y-60, w: 160, h: 120, text: '', color: 'var(--surface)' }; nodes.push(n); renderNode(n); select(n.id); }
+function createChecklist(pos) { const c = pos || centerWorld(); const n = { id: uid(), type: 'checklist', x: c.x-120, y: c.y-100, w: 240, h: 200, items: [{text:'New task', done:false}], color: 'var(--surface)' }; nodes.push(n); renderNode(n); select(n.id); }
+function createTable(pos) { const c = pos || centerWorld(); const n = { id: uid(), type: 'table', x: c.x-150, y: c.y-100, w: 300, h: 150, rows: [['H1','H2','H3'],['','',''],['','','']], color: 'var(--surface)' }; nodes.push(n); renderNode(n); select(n.id); }
 function handleImageFile(file, pos) {
   if (!file || !file.type.startsWith('image/')) return;
   const reader = new FileReader();
-  reader.onload = () => {
-    const img = new Image();
-    img.onload = () => {
-      const c = pos || centerWorld();
-      const w = Math.min(320, img.width), h = w * (img.height / img.width);
-      const node = { id: uid(), type: 'image', x: c.x - w / 2, y: c.y - h / 2, w, h, src: reader.result };
-      nodes.push(node); renderNode(node); select(node.id);
-    };
-    img.src = reader.result;
-  };
+  reader.onload = () => { const img = new Image(); img.onload = () => { const c = pos || centerWorld(), w = Math.min(320, img.width), h = w * (img.height / img.width), n = { id: uid(), type: 'image', mode: 'contain', x: c.x - w/2, y: c.y - h/2, w, h, src: reader.result }; nodes.push(n); renderNode(n); select(n.id); }; img.src = reader.result; };
   reader.readAsDataURL(file);
 }
 
 document.getElementById('note-btn').onclick = () => createNote();
+document.getElementById('chk-btn').onclick = () => createChecklist();
+document.getElementById('tbl-btn').onclick = () => createTable();
 document.getElementById('image-btn').onclick = () => { pendingImagePos = null; document.getElementById('file-input').click(); };
-document.getElementById('file-input').onchange = (e) => {
-  const file = e.target.files[0];
-  handleImageFile(file, pendingImagePos);
-  pendingImagePos = null;
-  e.target.value = '';
-};
-
+document.getElementById('file-input').onchange = (e) => { handleImageFile(e.target.files[0], pendingImagePos); e.target.value = ''; };
 const shapeMenu = document.getElementById('shape-menu');
-document.getElementById('shape-btn').onclick = (e) => {
-  const r = e.target.getBoundingClientRect();
-  shapeMenu.style.left = r.left + 'px';
-  shapeMenu.classList.toggle('open');
-};
+document.getElementById('shape-btn').onclick = (e) => { shapeMenu.style.left = e.target.getBoundingClientRect().left + 'px'; shapeMenu.classList.toggle('open'); };
 shapeMenu.querySelectorAll('button').forEach(b => b.onclick = () => { createShape(b.dataset.shape); shapeMenu.classList.remove('open'); });
 
-// drag & drop images onto canvas
-viewport.addEventListener('dragover', e => e.preventDefault());
-viewport.addEventListener('drop', e => {
-  e.preventDefault();
-  const file = e.dataTransfer.files && e.dataTransfer.files[0];
-  if (file) handleImageFile(file, screenToWorld(e.clientX, e.clientY));
-});
-
-// paste image from clipboard
-document.addEventListener('paste', (e) => {
-  if (isTyping()) return;
-  const items = e.clipboardData && e.clipboardData.items;
-  if (!items) return;
-  for (const item of items) {
-    if (item.type && item.type.startsWith('image/')) {
-      handleImageFile(item.getAsFile(), lastMouseWorld || centerWorld());
-      e.preventDefault();
-      break;
-    }
-  }
-});
-
-// ===================== SETTINGS PANEL =====================
-const settingsPanel = document.getElementById('settings-panel');
-document.getElementById('settings-btn').onclick = () => settingsPanel.classList.toggle('open');
-document.getElementById('theme-row').addEventListener('click', (e) => { if (e.target.dataset.v) { theme = e.target.dataset.v; applyTheme(); } });
-document.getElementById('bg-row').addEventListener('click', (e) => { if (e.target.dataset.v) { bgStyle = e.target.dataset.v; updateBackground(); } });
-document.getElementById('line-row').addEventListener('click', (e) => { if (e.target.dataset.v) { lineStyle = e.target.dataset.v; updateBackground(); drawConnections(); } });
+// ===================== SETTINGS & LOAD/SAVE =====================
+document.getElementById('settings-btn').onclick = () => document.getElementById('settings-panel').classList.toggle('open');
+document.getElementById('theme-row').onclick = (e) => { if (e.target.dataset.v) { theme = e.target.dataset.v; applyTheme(); } };
+document.getElementById('bg-row').onclick = (e) => { if (e.target.dataset.v) { bgStyle = e.target.dataset.v; updateBackground(); } };
+document.getElementById('line-row').onclick = (e) => { if (e.target.dataset.v) { lineStyle = e.target.dataset.v; updateBackground(); drawConnections(); } };
 document.getElementById('snap-toggle').onchange = (e) => snapEnabled = e.target.checked;
+document.getElementById('clear-btn').onclick = () => { if (confirm('Clear board?')) { nodes = []; connections = []; deselectAll(); renderAll(); } };
 
-document.getElementById('clear-btn').onclick = () => {
-  if (confirm('Clear the entire board? This cannot be undone.')) { nodes = []; connections = []; selectedId = null; renderAll(); }
-};
-document.getElementById('export-btn').onclick = () => {
-  const blob = new Blob([JSON.stringify(serializeBoard(), null, 2)], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob); a.download = 'board_export.json'; a.click();
-};
-document.getElementById('import-btn').onclick = () => {
-  const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json,application/json';
-  inp.onchange = (e) => {
-    const reader = new FileReader();
-    reader.onload = () => { try { loadBoardData(JSON.parse(reader.result)); } catch (err) { alert('Invalid file'); } };
-    reader.readAsText(e.target.files[0]);
-  };
-  inp.click();
-};
-
-function closeMenus() { shapeMenu.classList.remove('open'); settingsPanel.classList.remove('open'); }
-window.addEventListener('pointerdown', (e) => {
-  if (!e.target.closest('#shape-menu') && !e.target.closest('#shape-btn')) shapeMenu.classList.remove('open');
-  if (!e.target.closest('#settings-panel') && !e.target.closest('#settings-btn')) settingsPanel.classList.remove('open');
-  document.querySelectorAll('.color-row.open').forEach(cr => { if (!cr.contains(e.target)) cr.classList.remove('open'); });
-});
-
-// ===================== SHORTCUTS MODAL =====================
-const modalBackdrop = document.getElementById('modal-backdrop');
-const shortcutsModal = document.getElementById('shortcuts-modal');
-function toggleShortcuts() { modalBackdrop.classList.toggle('open'); shortcutsModal.classList.toggle('open'); }
-document.getElementById('help-btn').onclick = toggleShortcuts;
-document.getElementById('close-modal').onclick = toggleShortcuts;
-modalBackdrop.onclick = toggleShortcuts;
-
-// ===================== SERIALIZE / LOAD =====================
-function serializeBoard() { return { nodes, connections, theme, bgStyle, lineStyle, snapEnabled, panX, panY, zoom }; }
 function loadBoardData(data) {
-  if (Array.isArray(data)) {
-    nodes = data.map(n => ({ id: 'n' + n.id, type: 'note', x: n.x, y: n.y, w: 240, h: 200, text: n.text || '', color: 'var(--surface)' }));
-    connections = [];
-  } else {
-    nodes = data.nodes || [];
-    connections = data.connections || [];
-    theme = data.theme || 'dark';
-    bgStyle = data.bgStyle || 'dots';
-    lineStyle = data.lineStyle || 'straight';
-    snapEnabled = !!data.snapEnabled;
-    if (typeof data.panX === 'number') panX = data.panX;
-    if (typeof data.panY === 'number') panY = data.panY;
-    if (typeof data.zoom === 'number') zoom = data.zoom;
-  }
-  document.getElementById('snap-toggle').checked = snapEnabled;
-  applyTheme(); applyCanvasTransform(); renderAll();
+  nodes = data.nodes || []; connections = data.connections || []; theme = data.theme || 'dark'; bgStyle = data.bgStyle || 'dots'; lineStyle = data.lineStyle || 'straight'; snapEnabled = !!data.snapEnabled;
+  if (typeof data.panX === 'number') panX = data.panX; if (typeof data.panY === 'number') panY = data.panY; if (typeof data.zoom === 'number') zoom = data.zoom;
+  document.getElementById('snap-toggle').checked = snapEnabled; applyTheme(); applyCanvasTransform(); renderAll();
 }
 
-// ===================== GOOGLE DRIVE =====================
-function gapiLoad() {
-  gapi.load('client', async () => {
-    await gapi.client.init({ discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"] });
-  });
-}
-function gisLoad() {
-  tokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: CLIENT_ID, scope: SCOPES,
-    callback: (tokenResponse) => {
-      if (tokenResponse.error) return console.error(tokenResponse);
-      document.getElementById('auth-btn').style.display = 'none';
-      document.getElementById('save-btn').style.display = 'inline-block';
-      loadBoard();
-    }
-  });
-}
+function gapiLoad() { gapi.load('client', async () => await gapi.client.init({ discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"] })); }
+function gisLoad() { tokenClient = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: SCOPES, callback: (res) => { if (res.error) return; document.getElementById('auth-btn').style.display = 'none'; document.getElementById('save-btn').style.display = 'inline-block'; loadBoard(); } }); }
 document.getElementById('auth-btn').onclick = () => tokenClient.requestAccessToken({ prompt: 'consent' });
 
 async function loadBoard() {
   const res = await gapi.client.drive.files.list({ q: `name='${FILE_NAME}' and trashed=false`, spaces: 'drive' });
-  if (res.result.files && res.result.files.length > 0) {
-    fileId = res.result.files[0].id;
-    const fileData = await gapi.client.drive.files.get({ fileId, alt: 'media' });
-    const data = typeof fileData.result === 'string' ? JSON.parse(fileData.result) : fileData.result;
-    loadBoardData(data);
-  }
+  if (res.result.files?.length > 0) { fileId = res.result.files[0].id; const fData = await gapi.client.drive.files.get({ fileId, alt: 'media' }); loadBoardData(typeof fData.result === 'string' ? JSON.parse(fData.result) : fData.result); }
 }
-async function saveBoard() {
-  const btn = document.getElementById('save-btn');
-  btn.innerText = 'Syncing...';
-  const boundary = 'foo_bar_baz';
-  const metadata = { name: FILE_NAME, mimeType: 'application/json' };
-  const body = "\r\n--" + boundary + "\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n" +
-    JSON.stringify(metadata) + "\r\n--" + boundary + "\r\nContent-Type: application/json\r\n\r\n" +
-    JSON.stringify(serializeBoard()) + "\r\n--" + boundary + "--";
-  await gapi.client.request({
-    path: fileId ? `/upload/drive/v3/files/${fileId}` : '/upload/drive/v3/files',
-    method: fileId ? 'PATCH' : 'POST',
-    params: { uploadType: 'multipart' },
-    headers: { 'Content-Type': 'multipart/related; boundary=' + boundary },
-    body
-  });
-  btn.innerText = 'Synced ✓';
-  setTimeout(() => btn.innerText = 'Sync', 1500);
-}
-document.getElementById('save-btn').onclick = saveBoard;
+document.getElementById('save-btn').onclick = async () => {
+  const btn = document.getElementById('save-btn'); btn.innerText = 'Syncing...';
+  const boundary = 'foo_bar_baz', metadata = { name: FILE_NAME, mimeType: 'application/json' };
+  const body = "\r\n--" + boundary + "\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n" + JSON.stringify(metadata) + "\r\n--" + boundary + "\r\nContent-Type: application/json\r\n\r\n" + JSON.stringify({nodes, connections, theme, bgStyle, lineStyle, snapEnabled, panX, panY, zoom}) + "\r\n--" + boundary + "--";
+  await gapi.client.request({ path: fileId ? `/upload/drive/v3/files/${fileId}` : '/upload/drive/v3/files', method: fileId ? 'PATCH' : 'POST', params: { uploadType: 'multipart' }, headers: { 'Content-Type': 'multipart/related; boundary=' + boundary }, body });
+  btn.innerText = 'Synced ✓'; setTimeout(() => btn.innerText = 'Sync', 1500);
+};
 
-// ===================== INIT =====================
-applyTheme();
-applyCanvasTransform();
+applyTheme(); applyCanvasTransform();
 </script>
 </body>
 </html>
