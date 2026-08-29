@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Infinite Board</title>
+    <style>
+        :root { 
+            --bg: #121212; 
+            --surface: #1e1e1e; 
+            --border: #333; 
+            --accent: #d4af37; 
+            --text: #e0e0e0; 
+        }
+        body { 
+            margin: 0; overflow: hidden; background: var(--bg); color: var(--text); 
+            font-family: system-ui, -apple-system, sans-serif; touch-action: none; user-select: none; 
+        }
+        
+        #ui-bar { 
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 1000; 
+            display: flex; gap: 12px; background: rgba(30, 30, 30, 0.7); backdrop-filter: blur(12px); 
+            padding: 12px 16px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 8px 32px rgba(0,0,0,0.5); 
+        }
+        
+        button { 
+            padding: 8px 16px; cursor: pointer; border: 1px solid var(--border); 
+            background: var(--surface); color: var(--text); border-radius: 6px; 
+            font-weight: 500; transition: all 0.2s ease; font-size: 14px;
+        }
+        button:hover { border-color: var(--accent); color: var(--accent); }
+        
+        #viewport { width: 100vw; height: 100vh; position: relative; overflow: hidden; cursor: grab; }
+        #viewport:active { cursor: grabbing; }
+        #canvas { position: absolute; top: 0; left: 0; width: 0; height: 0; will-change: transform; }
+        
+        .note { 
+            position: absolute; width: 240px; height: 200px; background: var(--surface); 
+            border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.4); 
+            display: flex; flex-direction: column; 
+        }
+        .note-header { 
+            height: 24px; background: rgba(255,255,255,0.03); border-bottom: 1px solid var(--border); 
+            border-radius: 8px 8px 0 0; cursor: grab; display: flex; align-items: center; padding: 0 10px;
+        }
+        .note-header:active { cursor: grabbing; }
+        .note-body { flex: 1; padding: 12px; }
+        .note textarea { 
+            width: 100%; height: 100%; background: transparent; border: none; 
+            color: var(--text); resize: none; outline: none; font-family: inherit; 
+            font-size: 15px; line-height: 1.5; 
+        }
+    </style>
+</head>
+<body>
+    <div id="ui-bar">
+        <button id="auth-btn">Connect Drive</button>
+        <button id="add-btn" style="display:none;">+ Add Note</button>
+        <button id="save-btn" style="display:none;">Sync to Drive</button>
+    </div>
+
+    <div id="viewport">
+        <div id="canvas"></div>
+    </div>
+
+    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoad()"></script>
+    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoad()"></script>
+
+    <script>
+        // --- 1. CONFIGURATION ---
+        const CLIENT_ID = 'YOUR_CLIENT_ID_HERE.apps.googleusercontent.com'; 
+        const SCOPES = 'https://www.googleapis.com/auth/drive.file'; // Gives access ONLY to files created by this app
+        const FILE_NAME = 'my_personal_board.json';
+
+        let tokenClient, fileId = null;
+        let notes = [];
+        let panX = 0, panY = 0;
+        
+        const canvas = document.getElementById('canvas');
+        const viewport = document.getElementById('viewport');
+
+        // --- 2. GOOGLE AUTH & DRIVE SETUP ---
+        function gapiLoad() {
+            gapi.load('client', async () => {
+                await gapi.client.init({ discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"] });
+            });
+        }
+
+        function gisLoad() {
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: CLIENT_ID,
+                scope: SCOPES,
+                callback: (tokenResponse) => {
+                    if (tokenResponse.error) return console.error(tokenResponse);
+                    document.getElementById('auth-btn').style.display = 'none';
+                    document.getElementById('add-btn').style.display = 'block';
+                    document.getElementById('save-btn').style.display = 'block';
+                    loadBoard();
+                }
+            });
+        }
+
+        document.getElementById('auth-btn').onclick = () => tokenClient.requestAccessToken({prompt: 'consent'});
+
+        async function loadBoard() {
+            // Find existing board file
+            const res = await gapi.client.drive.files.list({ q: `name='${FILE_NAME}' and trashed=false`, spaces: 'drive' });
+            if (res.result.files && res.result.files.length > 0) {
+                fileId = res.result.files[0].id;
+                const fileData = await gapi.client.drive.files.get({ fileId: fileId, alt: 'media' });
+                notes = typeof fileData.result === 'string' ? JSON.parse(fileData.result) : fileData.result;
+                notes.forEach(renderNote);
+            }
+        }
+
+        async function saveBoard() {
+            const btn = document.getElementById('save-btn');
+            btn.innerText = "Syncing...";
+            
+            const boundary = 'foo_bar_baz';
+            const metadata = { name: FILE_NAME, mimeType: 'application/json' };
+            const body = "\r\n--" + boundary + "\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n" + 
+                         JSON.stringify(metadata) + "\r\n--" + boundary + "\r\nContent-Type: application/json\r\n\r\n" + 
+                         JSON.stringify(notes) + "\r\n--" + boundary + "--";
+
+            await gapi.client.request({
+                path: fileId ? `/upload/drive/v3/files/${fileId}` : '/upload/drive/v3/files',
+                method: fileId ? 'PATCH' : 'POST',
+                params: { uploadType: 'multipart' },
+                headers: { 'Content-Type': 'multipart/related; boundary=' + boundary },
+                body: body
+            });
+            
+            btn.innerText = "Sync to Drive";
+            setTimeout(() => btn.innerText = "Sync to Drive", 2000);
+        }
+
+        document.getElementById('save-btn').onclick = saveBoard;
+
+        // --- 3. INFINITE CANVAS LOGIC ---
+        let isPanning = false, startX, startY;
+        
+        viewport.addEventListener('pointerdown', (e) => {
+            if (e.target === viewport || e.target === canvas) {
+                isPanning = true;
+                startX = e.clientX - panX;
+                startY = e.clientY - panY;
+            }
+        });
+        
+        window.addEventListener('pointermove', (e) => {
+            if (!isPanning) return;
+            panX = e.clientX - startX;
+            panY = e.clientY - startY;
+            canvas.style.transform = `translate(${panX}px, ${panY}px)`;
+        });
+        
+        window.addEventListener('pointerup', () => isPanning = false);
+
+        // --- 4. STICKY NOTES LOGIC ---
+        document.getElementById('add-btn').onclick = () => {
+            const note = { id: Date.now(), x: -panX + window.innerWidth/2 - 120, y: -panY + window.innerHeight/2 - 100, text: "" };
+            notes.push(note);
+            renderNote(note);
+        };
+
+        function renderNote(note) {
+            const el = document.createElement('div');
+            el.className = 'note';
+            el.style.transform = `translate(${note.x}px, ${note.y}px)`;
+            
+            const header = document.createElement('div');
+            header.className = 'note-header';
+            
+            const body = document.createElement('div');
+            body.className = 'note-body';
+            
+            const ta = document.createElement('textarea');
+            ta.value = note.text;
+            ta.placeholder = "Write a note...";
+            ta.oninput = (e) => note.text = e.target.value;
+            ta.addEventListener('pointerdown', e => e.stopPropagation()); // Allow text selection without panning
+            
+            let isDragging = false, nStartX, nStartY;
+            header.addEventListener('pointerdown', (e) => {
+                isDragging = true;
+                nStartX = e.clientX - note.x;
+                nStartY = e.clientY - note.y;
+                e.stopPropagation();
+            });
+            window.addEventListener('pointermove', (e) => {
+                if (!isDragging) return;
+                note.x = e.clientX - nStartX;
+                note.y = e.clientY - nStartY;
+                el.style.transform = `translate(${note.x}px, ${note.y}px)`;
+            });
+            window.addEventListener('pointerup', () => isDragging = false);
+
+            body.appendChild(ta);
+            el.appendChild(header);
+            el.appendChild(body);
+            canvas.appendChild(el);
+        }
+    </script>
+</body>
+</html>
