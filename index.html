@@ -1,205 +1,620 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Infinite Board</title>
-    <style>
-        :root { 
-            --bg: #121212; 
-            --surface: #1e1e1e; 
-            --border: #333; 
-            --accent: #d4af37; 
-            --text: #e0e0e0; 
-        }
-        body { 
-            margin: 0; overflow: hidden; background: var(--bg); color: var(--text); 
-            font-family: system-ui, -apple-system, sans-serif; touch-action: none; user-select: none; 
-        }
-        
-        #ui-bar { 
-            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 1000; 
-            display: flex; gap: 12px; background: rgba(30, 30, 30, 0.7); backdrop-filter: blur(12px); 
-            padding: 12px 16px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 8px 32px rgba(0,0,0,0.5); 
-        }
-        
-        button { 
-            padding: 8px 16px; cursor: pointer; border: 1px solid var(--border); 
-            background: var(--surface); color: var(--text); border-radius: 6px; 
-            font-weight: 500; transition: all 0.2s ease; font-size: 14px;
-        }
-        button:hover { border-color: var(--accent); color: var(--accent); }
-        
-        #viewport { width: 100vw; height: 100vh; position: relative; overflow: hidden; cursor: grab; }
-        #viewport:active { cursor: grabbing; }
-        #canvas { position: absolute; top: 0; left: 0; width: 0; height: 0; will-change: transform; }
-        
-        .note { 
-            position: absolute; width: 240px; height: 200px; background: var(--surface); 
-            border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.4); 
-            display: flex; flex-direction: column; 
-        }
-        .note-header { 
-            height: 24px; background: rgba(255,255,255,0.03); border-bottom: 1px solid var(--border); 
-            border-radius: 8px 8px 0 0; cursor: grab; display: flex; align-items: center; padding: 0 10px;
-        }
-        .note-header:active { cursor: grabbing; }
-        .note-body { flex: 1; padding: 12px; }
-        .note textarea { 
-            width: 100%; height: 100%; background: transparent; border: none; 
-            color: var(--text); resize: none; outline: none; font-family: inherit; 
-            font-size: 15px; line-height: 1.5; 
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Infinite Board</title>
+<style>
+:root, [data-theme="dark"] {
+  --bg:#121212; --surface:#1e1e1e; --border:#333; --accent:#d4af37; --text:#e0e0e0;
+  --dot:rgba(255,255,255,.16); --danger:#e57373; --panel:rgba(30,30,30,.85);
+}
+[data-theme="light"] {
+  --bg:#eef0f3; --surface:#ffffff; --border:#d7d9dd; --accent:#b8860b; --text:#1c1c1c;
+  --dot:rgba(0,0,0,.16); --danger:#d32f2f; --panel:rgba(255,255,255,.9);
+}
+* { box-sizing:border-box; }
+body { margin:0; overflow:hidden; background:var(--bg); color:var(--text);
+  font-family:system-ui,-apple-system,sans-serif; touch-action:none; user-select:none; transition:background .2s; }
+
+#bg-layer { position:fixed; inset:0; z-index:0; pointer-events:none; }
+#viewport { width:100vw; height:100vh; position:relative; overflow:hidden; cursor:grab; z-index:1; }
+#viewport.panning { cursor:grabbing; }
+#canvas { position:absolute; top:0; left:0; width:0; height:0; transform-origin:0 0; will-change:transform; }
+#connSvg { position:absolute; top:0; left:0; overflow:visible; pointer-events:none; }
+#connSvg line.conn { stroke:var(--accent); stroke-width:2; }
+#connSvg line.temp-line { stroke:var(--accent); stroke-width:2; stroke-dasharray:5,4; }
+
+#ui-bar { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); z-index:1000;
+  display:flex; gap:8px; background:var(--panel); backdrop-filter:blur(12px);
+  padding:10px 12px; border-radius:14px; border:1px solid var(--border); box-shadow:0 8px 32px rgba(0,0,0,.4);
+  max-width:94vw; overflow-x:auto; }
+#ui-bar::-webkit-scrollbar{ display:none; }
+
+button, .ui-btn { padding:8px 12px; cursor:pointer; border:1px solid var(--border);
+  background:var(--surface); color:var(--text); border-radius:8px; font-weight:500;
+  transition:all .15s ease; font-size:13px; white-space:nowrap; flex-shrink:0; }
+button:hover, .ui-btn:hover { border-color:var(--accent); color:var(--accent); }
+button:active { transform:scale(.95); }
+.icon-btn { width:36px; padding:8px; text-align:center; }
+
+#zoom-group { display:flex; align-items:center; gap:2px; }
+#zoom-label { font-size:12px; opacity:.7; width:42px; text-align:center; flex-shrink:0; }
+
+.menu { position:fixed; bottom:70px; background:var(--panel); backdrop-filter:blur(12px);
+  border:1px solid var(--border); border-radius:10px; padding:6px; display:none; flex-direction:column;
+  gap:4px; z-index:1001; box-shadow:0 8px 24px rgba(0,0,0,.4); }
+.menu.open { display:flex; }
+.menu button { text-align:left; }
+
+#settings-panel { position:fixed; top:16px; right:16px; z-index:1001; background:var(--panel);
+  backdrop-filter:blur(12px); border:1px solid var(--border); border-radius:12px; padding:16px;
+  width:220px; display:none; flex-direction:column; gap:14px; box-shadow:0 8px 32px rgba(0,0,0,.4); font-size:13px; }
+#settings-panel.open { display:flex; }
+#settings-panel h4 { margin:0 0 4px 0; font-size:12px; opacity:.6; text-transform:uppercase; letter-spacing:.05em; }
+.opt-row { display:flex; gap:6px; }
+.opt-row button { flex:1; padding:6px; font-size:12px; }
+.opt-row button.active { border-color:var(--accent); color:var(--accent); background:rgba(212,175,55,.1); }
+.switch-row { display:flex; align-items:center; justify-content:space-between; }
+
+.node { position:absolute; top:0; left:0; background:var(--surface); border:1px solid var(--border);
+  border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,.35); display:flex; flex-direction:column; }
+.node.selected { outline:2px solid var(--accent); outline-offset:2px; }
+.node-header { height:20px; background:rgba(128,128,128,.08); border-bottom:1px solid var(--border);
+  border-radius:8px 8px 0 0; cursor:grab; flex-shrink:0; }
+.node-header:active { cursor:grabbing; }
+.node-body { flex:1; padding:10px; position:relative; overflow:hidden; }
+.node textarea { width:100%; height:100%; background:transparent; border:none; color:var(--text);
+  resize:none; outline:none; font-family:inherit; font-size:14px; line-height:1.4; }
+.node .label { width:100%; height:100%; outline:none; display:flex; align-items:center; justify-content:center;
+  text-align:center; font-size:14px; overflow:auto; word-break:break-word; }
+.node .shape-fill { position:absolute; inset:0; }
+.node img { width:100%; height:100%; object-fit:contain; display:block; pointer-events:none; }
+
+.node-tools { position:absolute; top:-14px; right:2px; display:none; gap:4px; z-index:5; }
+.node:hover .node-tools, .node.selected .node-tools { display:flex; }
+.node-tools span { width:20px; height:20px; border-radius:50%; background:var(--surface); border:1px solid var(--border);
+  display:flex; align-items:center; justify-content:center; font-size:11px; cursor:pointer; }
+.node-tools span:hover { border-color:var(--accent); }
+
+.link-badge { position:absolute; top:-8px; left:4px; background:var(--accent); color:#000; font-size:10px;
+  padding:1px 5px; border-radius:6px; cursor:pointer; z-index:5; }
+
+.handle { position:absolute; width:11px; height:11px; border-radius:50%; background:var(--accent);
+  border:2px solid var(--surface); display:none; z-index:6; }
+.node:hover .handle, .node.selected .handle { display:block; }
+.handle.n { top:-6px; left:calc(50% - 5px); cursor:crosshair; }
+.handle.s { bottom:-6px; left:calc(50% - 5px); cursor:crosshair; }
+.handle.e { right:-6px; top:calc(50% - 5px); cursor:crosshair; }
+.handle.w { left:-6px; top:calc(50% - 5px); cursor:crosshair; }
+.resize-handle { position:absolute; width:12px; height:12px; right:-4px; bottom:-4px; cursor:nwse-resize;
+  background:var(--surface); border:2px solid var(--accent); border-radius:3px; display:none; z-index:6; }
+.node:hover .resize-handle, .node.selected .resize-handle { display:block; }
+
+.color-row { position:absolute; top:-34px; left:0; display:none; gap:4px; background:var(--panel);
+  padding:5px; border-radius:8px; border:1px solid var(--border); z-index:7; }
+.color-row.open { display:flex; }
+.swatch { width:16px; height:16px; border-radius:50%; cursor:pointer; border:1px solid rgba(0,0,0,.2); }
+
+#file-input { display:none; }
+</style>
 </head>
 <body>
-    <div id="ui-bar">
-        <button id="auth-btn">Connect Drive</button>
-        <button id="add-btn" style="display:none;">+ Add Note</button>
-        <button id="save-btn" style="display:none;">Sync to Drive</button>
+<div id="bg-layer"></div>
+
+<div id="settings-panel">
+  <div>
+    <h4>Theme</h4>
+    <div class="opt-row" id="theme-row">
+      <button data-v="dark">Dark</button>
+      <button data-v="light">Light</button>
     </div>
-
-    <div id="viewport">
-        <div id="canvas"></div>
+  </div>
+  <div>
+    <h4>Background</h4>
+    <div class="opt-row" id="bg-row">
+      <button data-v="none">None</button>
+      <button data-v="dots">Dots</button>
+      <button data-v="grid">Grid</button>
     </div>
+  </div>
+  <div class="switch-row">
+    <span>Snap to grid</span>
+    <input type="checkbox" id="snap-toggle">
+  </div>
+  <div style="display:flex; gap:6px;">
+    <button id="export-btn" style="flex:1;">Export</button>
+    <button id="import-btn" style="flex:1;">Import</button>
+  </div>
+  <button id="clear-btn" style="color:var(--danger); border-color:var(--danger);">Clear board</button>
+</div>
 
-    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoad()"></script>
-    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoad()"></script>
+<div class="menu" id="shape-menu">
+  <button data-shape="rect">▭ Rectangle</button>
+  <button data-shape="circle">◯ Circle</button>
+  <button data-shape="diamond">◇ Diamond</button>
+</div>
 
-    <script>
-        // --- 1. CONFIGURATION ---
-        const CLIENT_ID = '500297009261-i1aa5fekjptp3i1kgpst248knc18gvt6.apps.googleusercontent.com'; 
-        const SCOPES = 'https://www.googleapis.com/auth/drive.file'; 
-        const FILE_NAME = 'my_personal_board.json';
+<div id="viewport">
+  <div id="canvas">
+    <svg id="connSvg"><defs>
+      <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+        <path d="M0,0 L6,3 L0,6 Z" fill="var(--accent)"></path>
+      </marker>
+    </defs></svg>
+  </div>
+</div>
 
-        let tokenClient, fileId = null;
-        let notes = [];
-        let panX = 0, panY = 0;
-        
-        const canvas = document.getElementById('canvas');
-        const viewport = document.getElementById('viewport');
+<input type="file" id="file-input" accept="image/*">
 
-        // --- 2. GOOGLE AUTH & DRIVE SETUP ---
-        function gapiLoad() {
-            gapi.load('client', async () => {
-                await gapi.client.init({ discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"] });
-            });
-        }
+<div id="ui-bar">
+  <button id="auth-btn">Connect Drive</button>
+  <button id="save-btn" style="display:none;">Sync</button>
+  <button class="icon-btn" id="note-btn" title="Add sticky note">🗒️</button>
+  <button class="icon-btn" id="shape-btn" title="Add shape">◇</button>
+  <button class="icon-btn" id="image-btn" title="Add image">🖼️</button>
+  <button class="icon-btn" id="settings-btn" title="Settings">⚙️</button>
+  <div id="zoom-group">
+    <button class="icon-btn" id="zoom-out">−</button>
+    <span id="zoom-label">100%</span>
+    <button class="icon-btn" id="zoom-in">+</button>
+  </div>
+  <button id="reset-view-btn">Reset view</button>
+</div>
 
-        function gisLoad() {
-            tokenClient = google.accounts.oauth2.initTokenClient({
-                client_id: CLIENT_ID,
-                scope: SCOPES,
-                callback: (tokenResponse) => {
-                    if (tokenResponse.error) return console.error(tokenResponse);
-                    document.getElementById('auth-btn').style.display = 'none';
-                    document.getElementById('add-btn').style.display = 'block';
-                    document.getElementById('save-btn').style.display = 'block';
-                    loadBoard();
-                }
-            });
-        }
+<script async defer src="https://apis.google.com/js/api.js" onload="gapiLoad()"></script>
+<script async defer src="https://accounts.google.com/gsi/client" onload="gisLoad()"></script>
 
-        document.getElementById('auth-btn').onclick = () => tokenClient.requestAccessToken({prompt: 'consent'});
+<script>
+// ===================== STATE =====================
+const CLIENT_ID = '500297009261-i1aa5fekjptp3i1kgpst248knc18gvt6.apps.googleusercontent.com';
+const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+const FILE_NAME = 'my_personal_board.json';
+let tokenClient, fileId = null;
 
-        async function loadBoard() {
-            const res = await gapi.client.drive.files.list({ q: `name='${FILE_NAME}' and trashed=false`, spaces: 'drive' });
-            if (res.result.files && res.result.files.length > 0) {
-                fileId = res.result.files[0].id;
-                const fileData = await gapi.client.drive.files.get({ fileId: fileId, alt: 'media' });
-                notes = typeof fileData.result === 'string' ? JSON.parse(fileData.result) : fileData.result;
-                notes.forEach(renderNote);
-            }
-        }
+let nodes = [];        // {id,type,shape,x,y,w,h,text,color,link,src}
+let connections = [];  // {id,from,to}
+let theme = 'dark', bgStyle = 'dots', snapEnabled = false;
+let panX = 60, panY = 60, zoom = 1;
+let selectedId = null;
+let idSeed = 1;
+const uid = () => 'n' + (Date.now().toString(36)) + (idSeed++);
 
-        async function saveBoard() {
-            const btn = document.getElementById('save-btn');
-            btn.innerText = "Syncing...";
-            
-            const boundary = 'foo_bar_baz';
-            const metadata = { name: FILE_NAME, mimeType: 'application/json' };
-            const body = "\r\n--" + boundary + "\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n" + 
-                         JSON.stringify(metadata) + "\r\n--" + boundary + "\r\nContent-Type: application/json\r\n\r\n" + 
-                         JSON.stringify(notes) + "\r\n--" + boundary + "--";
+const canvas = document.getElementById('canvas');
+const viewport = document.getElementById('viewport');
+const connSvg = document.getElementById('connSvg');
+const bgLayer = document.getElementById('bg-layer');
 
-            await gapi.client.request({
-                path: fileId ? `/upload/drive/v3/files/${fileId}` : '/upload/drive/v3/files',
-                method: fileId ? 'PATCH' : 'POST',
-                params: { uploadType: 'multipart' },
-                headers: { 'Content-Type': 'multipart/related; boundary=' + boundary },
-                body: body
-            });
-            
-            btn.innerText = "Sync to Drive";
-            setTimeout(() => btn.innerText = "Sync to Drive", 2000);
-        }
+// ===================== THEME / BACKGROUND =====================
+function applyTheme() {
+  document.body.setAttribute('data-theme', theme);
+  document.querySelectorAll('#theme-row button').forEach(b => b.classList.toggle('active', b.dataset.v === theme));
+  updateBackground();
+}
+function updateBackground() {
+  document.querySelectorAll('#bg-row button').forEach(b => b.classList.toggle('active', b.dataset.v === bgStyle));
+  const size = 26 * zoom;
+  const px = ((panX % size) + size) % size;
+  const py = ((panY % size) + size) % size;
+  if (bgStyle === 'none') { bgLayer.style.backgroundImage = 'none'; return; }
+  if (bgStyle === 'dots') {
+    bgLayer.style.backgroundImage = `radial-gradient(circle, var(--dot) 1.5px, transparent 1.6px)`;
+  } else {
+    bgLayer.style.backgroundImage = `linear-gradient(var(--dot) 1px, transparent 1px), linear-gradient(90deg, var(--dot) 1px, transparent 1px)`;
+  }
+  bgLayer.style.backgroundSize = `${size}px ${size}px`;
+  bgLayer.style.backgroundPosition = `${px}px ${py}px`;
+}
 
-        document.getElementById('save-btn').onclick = saveBoard;
+// ===================== VIEWPORT TRANSFORM =====================
+function applyCanvasTransform() {
+  canvas.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
+  document.getElementById('zoom-label').textContent = Math.round(zoom * 100) + '%';
+  updateBackground();
+}
+function screenToWorld(cx, cy) {
+  const r = viewport.getBoundingClientRect();
+  return { x: (cx - r.left - panX) / zoom, y: (cy - r.top - panY) / zoom };
+}
 
-        // --- 3. INFINITE CANVAS LOGIC ---
-        let isPanning = false, startX, startY;
-        
-        viewport.addEventListener('pointerdown', (e) => {
-            if (e.target === viewport || e.target === canvas) {
-                isPanning = true;
-                startX = e.clientX - panX;
-                startY = e.clientY - panY;
-            }
-        });
-        
-        window.addEventListener('pointermove', (e) => {
-            if (!isPanning) return;
-            panX = e.clientX - startX;
-            panY = e.clientY - startY;
-            canvas.style.transform = `translate(${panX}px, ${panY}px)`;
-        });
-        
-        window.addEventListener('pointerup', () => isPanning = false);
+// pan
+let isPanning = false, panStartX, panStartY;
+viewport.addEventListener('pointerdown', (e) => {
+  if (e.target === viewport || e.target === canvas || e.target === connSvg) {
+    isPanning = true; panStartX = e.clientX - panX; panStartY = e.clientY - panY;
+    viewport.classList.add('panning');
+    deselect();
+  }
+});
+window.addEventListener('pointermove', (e) => {
+  if (!isPanning) return;
+  panX = e.clientX - panStartX; panY = e.clientY - panStartY;
+  applyCanvasTransform();
+});
+window.addEventListener('pointerup', () => { isPanning = false; viewport.classList.remove('panning'); });
 
-        // --- 4. STICKY NOTES LOGIC ---
-        document.getElementById('add-btn').onclick = () => {
-            const note = { id: Date.now(), x: -panX + window.innerWidth/2 - 120, y: -panY + window.innerHeight/2 - 100, text: "" };
-            notes.push(note);
-            renderNote(note);
-        };
+// zoom (wheel, centered on cursor)
+viewport.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const before = screenToWorld(e.clientX, e.clientY);
+  const factor = e.deltaY < 0 ? 1.1 : 0.9;
+  zoom = Math.min(3, Math.max(0.2, zoom * factor));
+  const r = viewport.getBoundingClientRect();
+  panX = e.clientX - r.left - before.x * zoom;
+  panY = e.clientY - r.top - before.y * zoom;
+  applyCanvasTransform();
+}, { passive: false });
 
-        function renderNote(note) {
-            const el = document.createElement('div');
-            el.className = 'note';
-            el.style.transform = `translate(${note.x}px, ${note.y}px)`;
-            
-            const header = document.createElement('div');
-            header.className = 'note-header';
-            
-            const body = document.createElement('div');
-            body.className = 'note-body';
-            
-            const ta = document.createElement('textarea');
-            ta.value = note.text;
-            ta.placeholder = "Write a note...";
-            ta.oninput = (e) => note.text = e.target.value;
-            ta.addEventListener('pointerdown', e => e.stopPropagation()); 
-            
-            let isDragging = false, nStartX, nStartY;
-            header.addEventListener('pointerdown', (e) => {
-                isDragging = true;
-                nStartX = e.clientX - note.x;
-                nStartY = e.clientY - note.y;
-                e.stopPropagation();
-            });
-            window.addEventListener('pointermove', (e) => {
-                if (!isDragging) return;
-                note.x = e.clientX - nStartX;
-                note.y = e.clientY - nStartY;
-                el.style.transform = `translate(${note.x}px, ${note.y}px)`;
-            });
-            window.addEventListener('pointerup', () => isDragging = false);
+document.getElementById('zoom-in').onclick = () => { zoom = Math.min(3, zoom * 1.2); applyCanvasTransform(); };
+document.getElementById('zoom-out').onclick = () => { zoom = Math.max(0.2, zoom / 1.2); applyCanvasTransform(); };
+document.getElementById('reset-view-btn').onclick = () => { panX = 60; panY = 60; zoom = 1; applyCanvasTransform(); };
 
-            body.appendChild(ta);
-            el.appendChild(header);
-            el.appendChild(body);
-            canvas.appendChild(el);
-        }
-    </script>
+// ===================== NODE RENDERING =====================
+function renderAll() {
+  canvas.querySelectorAll('.node').forEach(n => n.remove());
+  nodes.forEach(renderNode);
+  drawConnections();
+}
+
+function renderNode(node) {
+  const el = document.createElement('div');
+  el.className = 'node';
+  el.dataset.id = node.id;
+  el.style.width = node.w + 'px';
+  el.style.height = node.h + 'px';
+  el.style.transform = `translate(${node.x}px, ${node.y}px)`;
+  if (node.type !== 'image') el.style.background = node.color || 'var(--surface)';
+
+  const header = document.createElement('div');
+  header.className = 'node-header';
+  el.appendChild(header);
+
+  const body = document.createElement('div');
+  body.className = 'node-body';
+  body.style.padding = node.type === 'image' ? '0' : '10px';
+
+  if (node.type === 'note') {
+    const ta = document.createElement('textarea');
+    ta.value = node.text || '';
+    ta.placeholder = 'Write a note...';
+    ta.oninput = e => node.text = e.target.value;
+    ta.addEventListener('pointerdown', e => e.stopPropagation());
+    body.appendChild(ta);
+  } else if (node.type === 'shape') {
+    if (node.shape === 'circle') el.style.borderRadius = '50%';
+    if (node.shape === 'diamond') { el.style.clipPath = 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)'; header.style.display='none'; }
+    const label = document.createElement('div');
+    label.className = 'label';
+    label.contentEditable = true;
+    label.innerText = node.text || '';
+    label.addEventListener('pointerdown', e => e.stopPropagation());
+    label.addEventListener('input', e => node.text = label.innerText);
+    body.appendChild(label);
+  } else if (node.type === 'image') {
+    const img = document.createElement('img');
+    img.src = node.src;
+    body.appendChild(img);
+  }
+  el.appendChild(body);
+
+  // header / diamond-drag / general node drag
+  let isDragging = false, offX, offY;
+  const startDrag = (e) => {
+    isDragging = true; select(node.id);
+    const wp = screenToWorld(e.clientX, e.clientY);
+    offX = wp.x - node.x; offY = wp.y - node.y;
+    e.stopPropagation();
+  };
+  header.addEventListener('pointerdown', startDrag);
+  if (node.shape === 'diamond') el.addEventListener('pointerdown', (e) => { if (e.target === el) startDrag(e); });
+
+  window.addEventListener('pointermove', (e) => {
+    if (!isDragging) return;
+    const wp = screenToWorld(e.clientX, e.clientY);
+    let nx = wp.x - offX, ny = wp.y - offY;
+    if (snapEnabled) { nx = Math.round(nx / 20) * 20; ny = Math.round(ny / 20) * 20; }
+    node.x = nx; node.y = ny;
+    el.style.transform = `translate(${nx}px, ${ny}px)`;
+    drawConnections();
+  });
+  window.addEventListener('pointerup', () => isDragging = false);
+
+  // resize
+  const rh = document.createElement('div');
+  rh.className = 'resize-handle';
+  el.appendChild(rh);
+  let isResizing = false, rStartW, rStartH, rStartWorld;
+  rh.addEventListener('pointerdown', (e) => {
+    isResizing = true; select(node.id);
+    rStartW = node.w; rStartH = node.h; rStartWorld = screenToWorld(e.clientX, e.clientY);
+    e.stopPropagation();
+  });
+  window.addEventListener('pointermove', (e) => {
+    if (!isResizing) return;
+    const wp = screenToWorld(e.clientX, e.clientY);
+    node.w = Math.max(60, rStartW + (wp.x - rStartWorld.x));
+    node.h = Math.max(40, rStartH + (wp.y - rStartWorld.y));
+    el.style.width = node.w + 'px'; el.style.height = node.h + 'px';
+    drawConnections();
+  });
+  window.addEventListener('pointerup', () => isResizing = false);
+
+  // connector handles
+  ['n','s','e','w'].forEach(dir => {
+    const h = document.createElement('div');
+    h.className = 'handle ' + dir;
+    h.addEventListener('pointerdown', (e) => { e.stopPropagation(); startConnector(node.id, e); });
+    el.appendChild(h);
+  });
+
+  // tools: delete + link + color
+  const tools = document.createElement('div');
+  tools.className = 'node-tools';
+  const del = document.createElement('span'); del.textContent = '✕';
+  del.onpointerdown = e => e.stopPropagation();
+  del.onclick = () => deleteNode(node.id);
+  tools.appendChild(del);
+
+  const linkBtn = document.createElement('span'); linkBtn.textContent = '🔗';
+  linkBtn.onpointerdown = e => e.stopPropagation();
+  linkBtn.onclick = () => {
+    const url = prompt('Link URL (leave blank to remove):', node.link || '');
+    if (url === null) return;
+    node.link = url.trim();
+    renderAll();
+  };
+  tools.appendChild(linkBtn);
+
+  if (node.type !== 'image') {
+    const colorBtn = document.createElement('span'); colorBtn.textContent = '🎨';
+    colorBtn.onpointerdown = e => e.stopPropagation();
+    colorBtn.onclick = () => colorRow.classList.toggle('open');
+    tools.appendChild(colorBtn);
+  }
+  el.appendChild(tools);
+
+  // color swatch row
+  const colorRow = document.createElement('div');
+  colorRow.className = 'color-row';
+  ['#1e1e1e','#d4af37','#e57373','#64b5f6','#81c784','#ffb74d','#ba68c8'].forEach(c => {
+    const sw = document.createElement('div');
+    sw.className = 'swatch'; sw.style.background = c;
+    sw.onpointerdown = e => e.stopPropagation();
+    sw.onclick = () => { node.color = c; el.style.background = c; colorRow.classList.remove('open'); };
+    colorRow.appendChild(sw);
+  });
+  el.appendChild(colorRow);
+
+  // link badge
+  if (node.link) {
+    const badge = document.createElement('div');
+    badge.className = 'link-badge'; badge.textContent = '🔗 open';
+    badge.onpointerdown = e => e.stopPropagation();
+    badge.onclick = () => window.open(/^https?:\/\//.test(node.link) ? node.link : 'https://' + node.link, '_blank');
+    el.appendChild(badge);
+  }
+
+  // select on tap
+  el.addEventListener('pointerdown', (e) => { if (!isDragging) select(node.id); });
+
+  canvas.appendChild(el);
+}
+
+function select(id) {
+  selectedId = id;
+  canvas.querySelectorAll('.node').forEach(n => n.classList.toggle('selected', n.dataset.id === id));
+}
+function deselect() { selectedId = null; canvas.querySelectorAll('.node').forEach(n => n.classList.remove('selected')); }
+
+function deleteNode(id) {
+  nodes = nodes.filter(n => n.id !== id);
+  connections = connections.filter(c => c.from !== id && c.to !== id);
+  if (selectedId === id) selectedId = null;
+  renderAll();
+}
+
+document.addEventListener('keydown', (e) => {
+  if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) {
+    const active = document.activeElement;
+    if (active && (active.tagName === 'TEXTAREA' || active.isContentEditable)) return;
+    deleteNode(selectedId);
+  }
+  if (e.key === 'Escape') deselect();
+});
+
+// ===================== CONNECTORS =====================
+let connecting = null; // { fromId, tempLine }
+function startConnector(fromId, e) {
+  const wp = screenToWorld(e.clientX, e.clientY);
+  const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+  line.setAttribute('class', 'temp-line');
+  line.setAttribute('x1', wp.x); line.setAttribute('y1', wp.y);
+  line.setAttribute('x2', wp.x); line.setAttribute('y2', wp.y);
+  connSvg.appendChild(line);
+  connecting = { fromId, line };
+}
+window.addEventListener('pointermove', (e) => {
+  if (!connecting) return;
+  const wp = screenToWorld(e.clientX, e.clientY);
+  connecting.line.setAttribute('x2', wp.x); connecting.line.setAttribute('y2', wp.y);
+});
+window.addEventListener('pointerup', (e) => {
+  if (!connecting) return;
+  connecting.line.remove();
+  const target = document.elementFromPoint(e.clientX, e.clientY);
+  const targetNode = target && target.closest('.node');
+  if (targetNode && targetNode.dataset.id !== connecting.fromId) {
+    connections.push({ id: uid(), from: connecting.fromId, to: targetNode.dataset.id });
+    drawConnections();
+  }
+  connecting = null;
+});
+
+function nodeCenter(n) { return { x: n.x + n.w / 2, y: n.y + n.h / 2 }; }
+function drawConnections() {
+  connSvg.querySelectorAll('line.conn').forEach(l => l.remove());
+  connections.forEach(c => {
+    const a = nodes.find(n => n.id === c.from), b = nodes.find(n => n.id === c.to);
+    if (!a || !b) return;
+    const p1 = nodeCenter(a), p2 = nodeCenter(b);
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('class', 'conn');
+    line.setAttribute('x1', p1.x); line.setAttribute('y1', p1.y);
+    line.setAttribute('x2', p2.x); line.setAttribute('y2', p2.y);
+    line.setAttribute('marker-end', 'url(#arrow)');
+    connSvg.insertBefore(line, connSvg.firstChild.nextSibling);
+  });
+}
+
+// ===================== ADD NODES =====================
+function centerWorld() {
+  return screenToWorld(window.innerWidth / 2, window.innerHeight / 2);
+}
+document.getElementById('note-btn').onclick = () => {
+  const c = centerWorld();
+  const node = { id: uid(), type: 'note', x: c.x - 120, y: c.y - 100, w: 240, h: 200, text: '', color: 'var(--surface)' };
+  nodes.push(node); renderNode(node);
+};
+document.getElementById('image-btn').onclick = () => document.getElementById('file-input').click();
+document.getElementById('file-input').onchange = (e) => {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const c = centerWorld();
+      const w = Math.min(320, img.width), h = w * (img.height / img.width);
+      const node = { id: uid(), type: 'image', x: c.x - w / 2, y: c.y - h / 2, w, h, src: reader.result };
+      nodes.push(node); renderNode(node);
+    };
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+  e.target.value = '';
+};
+
+const shapeMenu = document.getElementById('shape-menu');
+document.getElementById('shape-btn').onclick = (e) => {
+  const r = e.target.getBoundingClientRect();
+  shapeMenu.style.left = r.left + 'px';
+  shapeMenu.classList.toggle('open');
+};
+shapeMenu.querySelectorAll('button').forEach(b => b.onclick = () => {
+  const c = centerWorld();
+  const node = { id: uid(), type: 'shape', shape: b.dataset.shape, x: c.x - 80, y: c.y - 60, w: 160, h: 120, text: '', color: 'var(--surface)' };
+  nodes.push(node); renderNode(node);
+  shapeMenu.classList.remove('open');
+});
+
+// ===================== SETTINGS PANEL =====================
+const settingsPanel = document.getElementById('settings-panel');
+document.getElementById('settings-btn').onclick = () => settingsPanel.classList.toggle('open');
+document.getElementById('theme-row').addEventListener('click', (e) => {
+  if (e.target.dataset.v) { theme = e.target.dataset.v; applyTheme(); }
+});
+document.getElementById('bg-row').addEventListener('click', (e) => {
+  if (e.target.dataset.v) { bgStyle = e.target.dataset.v; updateBackground(); }
+});
+document.getElementById('snap-toggle').onchange = (e) => snapEnabled = e.target.checked;
+
+document.getElementById('clear-btn').onclick = () => {
+  if (confirm('Clear the entire board? This cannot be undone.')) {
+    nodes = []; connections = []; selectedId = null; renderAll();
+  }
+};
+document.getElementById('export-btn').onclick = () => {
+  const blob = new Blob([JSON.stringify(serializeBoard(), null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'board_export.json'; a.click();
+};
+document.getElementById('import-btn').onclick = () => {
+  const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json,application/json';
+  inp.onchange = (e) => {
+    const reader = new FileReader();
+    reader.onload = () => { try { loadBoardData(JSON.parse(reader.result)); } catch (err) { alert('Invalid file'); } };
+    reader.readAsText(e.target.files[0]);
+  };
+  inp.click();
+};
+
+// close menus when tapping elsewhere
+window.addEventListener('pointerdown', (e) => {
+  if (!e.target.closest('#shape-menu') && !e.target.closest('#shape-btn')) shapeMenu.classList.remove('open');
+  if (!e.target.closest('#settings-panel') && !e.target.closest('#settings-btn')) settingsPanel.classList.remove('open');
+  document.querySelectorAll('.color-row.open').forEach(cr => { if (!cr.contains(e.target)) cr.classList.remove('open'); });
+});
+
+// ===================== SERIALIZE / LOAD =====================
+function serializeBoard() { return { nodes, connections, theme, bgStyle, snapEnabled, panX, panY, zoom }; }
+function loadBoardData(data) {
+  if (Array.isArray(data)) { // legacy format
+    nodes = data.map(n => ({ id: 'n' + n.id, type: 'note', x: n.x, y: n.y, w: 240, h: 200, text: n.text || '', color: 'var(--surface)' }));
+    connections = [];
+  } else {
+    nodes = data.nodes || [];
+    connections = data.connections || [];
+    theme = data.theme || 'dark';
+    bgStyle = data.bgStyle || 'dots';
+    snapEnabled = !!data.snapEnabled;
+    if (typeof data.panX === 'number') panX = data.panX;
+    if (typeof data.panY === 'number') panY = data.panY;
+    if (typeof data.zoom === 'number') zoom = data.zoom;
+  }
+  document.getElementById('snap-toggle').checked = snapEnabled;
+  applyTheme(); applyCanvasTransform(); renderAll();
+}
+
+// ===================== GOOGLE DRIVE =====================
+function gapiLoad() {
+  gapi.load('client', async () => {
+    await gapi.client.init({ discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"] });
+  });
+}
+function gisLoad() {
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID, scope: SCOPES,
+    callback: (tokenResponse) => {
+      if (tokenResponse.error) return console.error(tokenResponse);
+      document.getElementById('auth-btn').style.display = 'none';
+      document.getElementById('save-btn').style.display = 'inline-block';
+      loadBoard();
+    }
+  });
+}
+document.getElementById('auth-btn').onclick = () => tokenClient.requestAccessToken({ prompt: 'consent' });
+
+async function loadBoard() {
+  const res = await gapi.client.drive.files.list({ q: `name='${FILE_NAME}' and trashed=false`, spaces: 'drive' });
+  if (res.result.files && res.result.files.length > 0) {
+    fileId = res.result.files[0].id;
+    const fileData = await gapi.client.drive.files.get({ fileId, alt: 'media' });
+    const data = typeof fileData.result === 'string' ? JSON.parse(fileData.result) : fileData.result;
+    loadBoardData(data);
+  }
+}
+async function saveBoard() {
+  const btn = document.getElementById('save-btn');
+  btn.innerText = 'Syncing...';
+  const boundary = 'foo_bar_baz';
+  const metadata = { name: FILE_NAME, mimeType: 'application/json' };
+  const body = "\r\n--" + boundary + "\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n" +
+    JSON.stringify(metadata) + "\r\n--" + boundary + "\r\nContent-Type: application/json\r\n\r\n" +
+    JSON.stringify(serializeBoard()) + "\r\n--" + boundary + "--";
+  await gapi.client.request({
+    path: fileId ? `/upload/drive/v3/files/${fileId}` : '/upload/drive/v3/files',
+    method: fileId ? 'PATCH' : 'POST',
+    params: { uploadType: 'multipart' },
+    headers: { 'Content-Type': 'multipart/related; boundary=' + boundary },
+    body
+  });
+  btn.innerText = 'Synced ✓';
+  setTimeout(() => btn.innerText = 'Sync', 1500);
+}
+document.getElementById('save-btn').onclick = saveBoard;
+
+// ===================== INIT =====================
+applyTheme();
+applyCanvasTransform();
+</script>
 </body>
 </html>
