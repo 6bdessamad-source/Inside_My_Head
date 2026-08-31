@@ -367,16 +367,19 @@ button:focus-visible, .ui-btn:focus-visible, input:focus-visible { outline:2px s
 </div>
 
 <div id="align-bar">
-  <button class="icon-btn" id="align-left" title="Align left"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 3v18"/><path d="M8 7h9"/><path d="M8 12h13"/><path d="M8 17h6"/></svg></button>
-  <button class="icon-btn" id="align-hcenter" title="Align center (horizontal)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 3v18"/><path d="M7 7h10"/><path d="M4 12h16"/><path d="M8 17h8"/></svg></button>
-  <button class="icon-btn" id="align-right" title="Align right"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M20 3v18"/><path d="M7 7h9"/><path d="M3 12h13"/><path d="M10 17h6"/></svg></button>
+  <button class="icon-btn" id="align-left" title="Align left (Shift+A)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 3v18"/><path d="M8 7h9"/><path d="M8 12h13"/><path d="M8 17h6"/></svg></button>
+  <button class="icon-btn" id="align-hcenter" title="Align center horizontal (Shift+E)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 3v18"/><path d="M7 7h10"/><path d="M4 12h16"/><path d="M8 17h8"/></svg></button>
+  <button class="icon-btn" id="align-right" title="Align right (Shift+D)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M20 3v18"/><path d="M7 7h9"/><path d="M3 12h13"/><path d="M10 17h6"/></svg></button>
   <div class="divider"></div>
-  <button class="icon-btn" id="align-top" title="Align top"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 4h18"/><path d="M7 8v9"/><path d="M12 8v13"/><path d="M17 8v6"/></svg></button>
-  <button class="icon-btn" id="align-vcenter" title="Align middle (vertical)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 12h18"/><path d="M7 7v10"/><path d="M12 4v16"/><path d="M17 8v8"/></svg></button>
-  <button class="icon-btn" id="align-bottom" title="Align bottom"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 20h18"/><path d="M7 16V7"/><path d="M12 16V3"/><path d="M17 16v-9"/></svg></button>
+  <button class="icon-btn" id="align-top" title="Align top (Shift+W)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 4h18"/><path d="M7 8v9"/><path d="M12 8v13"/><path d="M17 8v6"/></svg></button>
+  <button class="icon-btn" id="align-vcenter" title="Align middle vertical (Shift+Q)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 12h18"/><path d="M7 7v10"/><path d="M12 4v16"/><path d="M17 8v8"/></svg></button>
+  <button class="icon-btn" id="align-bottom" title="Align bottom (Shift+S)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 20h18"/><path d="M7 16V7"/><path d="M12 16V3"/><path d="M17 16v-9"/></svg></button>
   <div class="divider"></div>
   <button class="icon-btn" id="dist-h" title="Distribute horizontally"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 4v16"/><path d="M21 4v16"/><path d="M9 8v8"/><path d="M15 8v8"/></svg></button>
   <button class="icon-btn" id="dist-v" title="Distribute vertically"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 3h16"/><path d="M4 21h16"/><path d="M8 9h8"/><path d="M8 15h8"/></svg></button>
+  <!-- NEW: Style button for batch modifications -->
+  <div class="divider"></div>
+  <button class="icon-btn" id="style-quick-btn" title="Modify properties (batch)" style="width:auto; padding:6px 10px;">Style</button>
 </div>
 
 <div id="link-panel">
@@ -404,6 +407,8 @@ button:focus-visible, .ui-btn:focus-visible, input:focus-visible { outline:2px s
   <div class="divider"></div>
   <button class="ui-btn" id="pen-mode-pen" title="Pen">Pen</button>
   <button class="ui-btn" id="pen-mode-highlighter" title="Highlighter">Highlighter</button>
+  <!-- NEW: Eraser button -->
+  <button class="ui-btn" id="pen-mode-eraser" title="Eraser">Eraser</button>
   <div class="divider"></div>
   <label>Width</label>
   <input type="range" id="pen-width" min="1" max="24" value="3">
@@ -449,8 +454,8 @@ button:focus-visible, .ui-btn:focus-visible, input:focus-visible { outline:2px s
   <button data-action="edit">Edit</button>
   <button data-action="style">Modify Properties...</button>
   <div class="menu-sep"></div>
-  <button data-action="copy">Copy</button> <!-- NEW -->
-  <button data-action="paste">Paste</button> <!-- NEW -->
+  <button data-action="copy">Copy</button>
+  <button data-action="paste">Paste</button>
   <button data-action="duplicate">Duplicate</button>
   <button data-action="delete">Delete</button>
   <div class="menu-sep"></div>
@@ -534,6 +539,7 @@ button:focus-visible, .ui-btn:focus-visible, input:focus-visible { outline:2px s
       <div class="sc-row"><span>Pan canvas</span><kbd>Space</kbd> + drag</div>
       <div class="sc-row"><span>Text tool</span><kbd>T</kbd></div>
       <div class="sc-row"><span>Pen tool</span><kbd>P</kbd></div>
+      <div class="sc-row"><span>Eraser tool</span><kbd>E</kbd></div>
       <div class="sc-row"><span>New note</span><kbd>N</kbd></div>
       <div class="sc-row"><span>New checklist</span><kbd>K</kbd></div>
       <div class="sc-row"><span>New table</span><kbd>Y</kbd></div>
@@ -549,6 +555,8 @@ button:focus-visible, .ui-btn:focus-visible, input:focus-visible { outline:2px s
       <div class="sc-row"><span>Undo / Redo</span><kbd>Ctrl Z</kbd> / <kbd>Ctrl Shift Z</kbd></div>
       <div class="sc-row"><span>Find on board</span><kbd>Ctrl F</kbd></div>
       <div class="sc-row"><span>Nudge selection</span><kbd>Arrows</kbd> (<kbd>Shift</kbd> = 10px)</div>
+      <div class="sc-row"><span>Align left/right/top/bottom</span><kbd>Shift A/D/W/S</kbd></div>
+      <div class="sc-row"><span>Align center h/v</span><kbd>Shift E/Q</kbd></div>
       <div class="sc-row"><span>Recolor selection</span><kbd>1</kbd>–<kbd>7</kbd></div>
       <div class="sc-row"><span>Bring forward / back</span><kbd>]</kbd> / <kbd>[</kbd></div>
       <div class="sc-row"><span>To front / to back</span><kbd>Ctrl ]</kbd> / <kbd>Ctrl [</kbd></div>
@@ -840,6 +848,25 @@ viewport.addEventListener('pointerdown', (e) => {
     }
 
     if (toolMode === 'draw') {
+      // NEW: Eraser mode - remove whole strokes on click
+      if (penMode === 'eraser') {
+        const hit = drawings.findIndex(d => {
+          // Simple bounding box check
+          const minX = Math.min(...d.points.map(p=>p.x));
+          const maxX = Math.max(...d.points.map(p=>p.x));
+          const minY = Math.min(...d.points.map(p=>p.y));
+          const maxY = Math.max(...d.points.map(p=>p.y));
+          return wp.x >= minX - 5 && wp.x <= maxX + 5 && wp.y >= minY - 5 && wp.y <= maxY + 5;
+        });
+        if (hit !== -1) {
+          pushHistory();
+          drawings.splice(hit, 1);
+          renderDrawings();
+          scheduleAutosave();
+        }
+        return; // no continuous drawing for eraser
+      }
+
       pushHistory();
       const isHi = penMode === 'highlighter';
       currentPath = { id: uid(), points: [wp], color: penColor, width: isHi ? Math.max(penWidth, 10) : penWidth, opacity: isHi ? 0.35 : 1 };
@@ -1031,6 +1058,14 @@ document.getElementById('style-text-val').oninput = (e) => applyStyleToSelected(
 document.getElementById('style-font-val').onchange = (e) => applyStyleToSelected('fontFamily', e.target.value);
 document.getElementById('style-size-val').oninput = (e) => applyStyleToSelected('fontSize', e.target.value);
 
+// NEW: Open style panel from align bar
+document.getElementById('style-quick-btn').onclick = () => {
+  const panel = document.getElementById('style-panel');
+  panel.style.top = '110px'; // below align bar
+  panel.style.right = '20px';
+  panel.classList.toggle('open');
+};
+
 // ============================================================================== //
 //                           JS: SELECTION & ALIGNMENT LOGIC                      //
 // ============================================================================== //
@@ -1217,20 +1252,18 @@ function duplicateSelected() {
     const orig = nodes.find(n => n.id === id); if (!orig) return;
     const clone = JSON.parse(JSON.stringify(orig));
     clone.id = uid(); clone.x += 24; clone.y += 24;
-    // Clear group to avoid unintended grouping
     if (clone.groupId) delete clone.groupId;
     nodes.push(clone); renderNode(clone); select(clone.id, true);
   });
   scheduleAutosave();
 }
-// NEW: Clipboard functions
-let clipboardNodes = []; // stores deep copies
+let clipboardNodes = [];
 function copySelected() {
   if (!selectedIds.size) return;
   clipboardNodes = getSelectedNodes().map(n => {
     const copy = JSON.parse(JSON.stringify(n));
-    delete copy.id; // will be regenerated on paste
-    if (copy.groupId) delete copy.groupId; // paste as ungrouped
+    delete copy.id;
+    if (copy.groupId) delete copy.groupId;
     return copy;
   });
 }
@@ -1411,7 +1444,6 @@ function renderNode(node) {
         row.addEventListener('dragstart', (e) => {
           row.classList.add('dragging');
           e.dataTransfer.effectAllowed = 'move';
-          // Store source node id and item index
           e.dataTransfer.setData('text/plain', JSON.stringify({
             sourceNodeId: node.id,
             sourceIndex: i
@@ -1420,7 +1452,6 @@ function renderNode(node) {
         });
         row.addEventListener('dragend', (e) => { 
           row.classList.remove('dragging'); 
-          // Remove any drop-target highlights
           document.querySelectorAll('.checklist-item.drop-target').forEach(el => el.classList.remove('drop-target'));
           e.stopPropagation();
         });
@@ -1444,10 +1475,9 @@ function renderNode(node) {
           
           const sourceNodeId = dragInfo.sourceNodeId;
           const sourceIndex = dragInfo.sourceIndex;
-          const targetNodeId = node.id; // current node (target)
-          const targetIndex = i; // insertion point (before this index)
+          const targetNodeId = node.id;
+          const targetIndex = i;
           
-          // Prevent dropping onto itself
           if (sourceNodeId === targetNodeId && sourceIndex === targetIndex) return;
           
           pushHistory();
@@ -1456,22 +1486,18 @@ function renderNode(node) {
           const targetNode = nodes.find(n => n.id === targetNodeId);
           if (!sourceNode || !targetNode) return;
           
-          // Remove item from source
           const movedItem = sourceNode.items.splice(sourceIndex, 1)[0];
           
-          // Insert into target at targetIndex (adjusted if same node and moving down)
           let insertIdx = targetIndex;
           if (sourceNodeId === targetNodeId && sourceIndex < targetIndex) {
-            insertIdx--; // because we removed one item before the target
+            insertIdx--;
           }
           targetNode.items.splice(insertIdx, 0, movedItem);
           
-          // Re-render both checklists (or same one)
           const sourceEl = canvas.querySelector(`[data-id="${sourceNodeId}"] .node-body`);
           const targetEl = canvas.querySelector(`[data-id="${targetNodeId}"] .node-body`);
-          if (sourceEl) sourceEl.innerHTML = ''; // will be re-rendered by renderNode
+          if (sourceEl) sourceEl.innerHTML = '';
           if (targetEl) targetEl.innerHTML = '';
-          // Re-render nodes
           renderNode(sourceNode);
           renderNode(targetNode);
           scheduleAutosave();
@@ -1525,9 +1551,8 @@ function renderNode(node) {
   // --- NODE INTERACTION EVENT LISTENERS ---
   el.addEventListener('pointerdown', (e) => {
     const t = e.target;
-    // Prevent node drag when interacting with checklist drag handles or draggable rows
     if (t.closest('.chk-drag-handle') || t.closest('[draggable="true"]')) {
-      return; // Let native drag handle it
+      return;
     }
     if (t.tagName === 'BUTTON' || t.closest('.node-tools') || t.closest('.handle') || t.closest('.resize-handle') || t.closest('.color-row')) return;
     const isEditing = (t.tagName === 'TEXTAREA' && !t.readOnly) || (t.tagName === 'INPUT' && t.type !== 'checkbox' && !t.readOnly) || (t.contentEditable === 'true');
@@ -1639,7 +1664,6 @@ function linkSelected() {
 function openContextMenu(e, nodeId) {
   e.preventDefault(); e.stopPropagation();
   if (nodeId && !selectedIds.has(nodeId)) select(nodeId, e.shiftKey);
-  // Update paste button state
   document.querySelector('#context-menu button[data-action="paste"]').style.display = clipboardNodes.length ? 'block' : 'none';
   const x = Math.min(e.clientX, window.innerWidth - 215), y = Math.min(e.clientY, window.innerHeight - 440);
   contextMenu.style.left = Math.max(4, x) + 'px'; contextMenu.style.top = Math.max(4, y) + 'px'; contextMenu.classList.add('open');
@@ -1808,9 +1832,12 @@ function renderPenSwatches() {
 renderPenSwatches();
 document.getElementById('pen-mode-pen').onclick = () => { penMode = 'pen'; updatePenModeUI(); };
 document.getElementById('pen-mode-highlighter').onclick = () => { penMode = 'highlighter'; updatePenModeUI(); };
+// NEW: Eraser button handler
+document.getElementById('pen-mode-eraser').onclick = () => { penMode = 'eraser'; updatePenModeUI(); };
 function updatePenModeUI() {
   document.getElementById('pen-mode-pen').classList.toggle('active-tool', penMode === 'pen');
   document.getElementById('pen-mode-highlighter').classList.toggle('active-tool', penMode === 'highlighter');
+  document.getElementById('pen-mode-eraser').classList.toggle('active-tool', penMode === 'eraser');
 }
 updatePenModeUI();
 document.getElementById('pen-width').oninput = (e) => penWidth = Number(e.target.value);
@@ -1883,8 +1910,8 @@ document.addEventListener('keydown', (e) => {
   if (meta && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); return; }
   if (meta && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); return; }
   if (meta && e.key.toLowerCase() === 'a') { e.preventDefault(); nodes.forEach(n => selectedIds.add(n.id)); updateSelectionUI(); return; }
-  if (meta && e.key.toLowerCase() === 'c') { e.preventDefault(); copySelected(); return; } // NEW
-  if (meta && e.key.toLowerCase() === 'v') { e.preventDefault(); pasteNodes(); return; } // NEW
+  if (meta && e.key.toLowerCase() === 'c') { e.preventDefault(); copySelected(); return; }
+  if (meta && e.key.toLowerCase() === 'v') { e.preventDefault(); pasteNodes(); return; }
   if (meta && e.key.toLowerCase() === 'd') { e.preventDefault(); duplicateSelected(); return; }
   if (meta && e.key.toLowerCase() === 'g' && e.shiftKey) { e.preventDefault(); ungroupSelected(); return; }
   if (meta && e.key.toLowerCase() === 'g') { e.preventDefault(); groupSelected(); return; }
@@ -1896,11 +1923,23 @@ document.addEventListener('keydown', (e) => {
   if (meta && (e.key === '=' || e.key === '+')) { e.preventDefault(); zoom = Math.min(5, zoom*1.2); applyCanvasTransform(); return; }
   if (meta && e.key === '-') { e.preventDefault(); zoom = Math.max(0.1, zoom/1.2); applyCanvasTransform(); return; }
 
+  // NEW: Align shortcuts with Shift + W/A/S/D/E/Q
+  if (e.shiftKey && selectedIds.size >= 2) {
+    const key = e.key.toLowerCase();
+    if (key === 'a') { e.preventDefault(); alignSelected('left'); return; }
+    if (key === 'd') { e.preventDefault(); alignSelected('right'); return; }
+    if (key === 'w') { e.preventDefault(); alignSelected('top'); return; }
+    if (key === 's') { e.preventDefault(); alignSelected('bottom'); return; }
+    if (key === 'e') { e.preventDefault(); alignSelected('hcenter'); return; }
+    if (key === 'q') { e.preventDefault(); alignSelected('vcenter'); return; }
+  }
+
   if (e.key === 'Delete' || e.key === 'Backspace') { if (selectedIds.size > 0) return deleteSelected(); if (selectedConnId) return deleteConnection(selectedConnId); }
   if (e.key === '?') { shortcutsPanel.classList.toggle('open'); return; }
   if (e.key.toLowerCase() === 'v') return setTool('select');
   if (e.key.toLowerCase() === 'p') return setTool('draw');
   if (e.key.toLowerCase() === 't') return setTool('text');
+  if (e.key.toLowerCase() === 'e' && !e.shiftKey) { setTool('draw'); penMode = 'eraser'; updatePenModeUI(); return; } // NEW: E for eraser
   if (e.key === '!' && e.shiftKey) return zoomToFit(); 
   if (e.key === '@' && e.shiftKey) return zoomToSelected(); 
 
