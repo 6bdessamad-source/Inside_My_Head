@@ -64,6 +64,10 @@ button:active { transform:scale(.95); }
 .context-menu button { text-align:left; width:100%; }
 .menu-sep { height:1px; background:var(--border); margin:3px 0; }
 
+/* Drive Workspaces Panel */
+#drive-panel { position:fixed; bottom:70px; left:50%; transform:translateX(calc(-50% - 200px)); z-index:1001; min-width:220px; max-width:260px; }
+.file-btn { text-align:left; width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding:8px; font-size:12.5px; }
+
 #settings-panel { position:fixed; top:16px; right:16px; z-index:1001; background:var(--panel);
   backdrop-filter:blur(12px); border:1px solid var(--border); border-radius:12px; padding:16px;
   width:230px; display:none; flex-direction:column; gap:14px; box-shadow:0 8px 32px rgba(0,0,0,.4); font-size:13px; }
@@ -394,9 +398,17 @@ input[type="range"] { accent-color:var(--accent); width:70px; }
 
 <input type="file" id="file-input" accept="image/*">
 
+<div class="menu" id="drive-panel">
+  <button id="drive-save-btn">Save Current</button>
+  <button id="drive-save-as-btn">Save As...</button>
+  <div class="menu-sep"></div>
+  <div style="font-size:11px; opacity:0.6; padding:4px;">Workspaces</div>
+  <div id="drive-file-list" style="max-height: 200px; overflow-y: auto; display:flex; flex-direction:column; gap:2px;"></div>
+</div>
+
 <div id="ui-bar">
-  <button id="auth-btn">Drive Sync</button>
-  <button id="save-btn" style="display:none;">Sync</button>
+  <button id="auth-btn">Connect Drive</button>
+  <button id="drive-menu-btn" style="display:none;">Workspaces ▾</button>
   <div class="divider"></div>
   <button class="icon-btn" id="note-btn" title="Note (N)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></button>
   <button class="icon-btn" id="shape-btn" title="Shape"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="10" width="9" height="9" rx="1.5"/><circle cx="16.5" cy="7.5" r="4.5"/></svg></button>
@@ -432,8 +444,10 @@ input[type="range"] { accent-color:var(--accent); width:70px; }
 // ===================== STATE =====================
 const CLIENT_ID = '500297009261-i1aa5fekjptp3i1kgpst248knc18gvt6.apps.googleusercontent.com';
 const SCOPES = 'https://www.googleapis.com/auth/drive.file';
-const FILE_NAME = 'my_personal_board.json';
-let tokenClient, fileId = null;
+
+let tokenClient = null;
+let currentFileId = null;
+let currentFileName = 'Untitled Board';
 
 let nodes = [], connections = [], drawings = [];
 let groups = {}; // gid -> { title, color }
@@ -512,7 +526,7 @@ function exportBoard() {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = 'research-board-backup.json';
+  a.download = currentFileName.endsWith('.json') ? currentFileName : currentFileName + '.json';
   a.click();
 }
 document.getElementById('export-btn').onclick = exportBoard;
@@ -847,6 +861,9 @@ function openGroupColorRow(gid, anchorEl) {
 document.addEventListener('pointerdown', (e) => {
   const gp = document.getElementById('group-color-picker');
   if (gp.classList.contains('open') && !gp.contains(e.target) && !e.target.classList.contains('group-color-btn')) gp.classList.remove('open');
+  
+  const dp = document.getElementById('drive-panel');
+  if (dp && dp.classList.contains('open') && !dp.contains(e.target) && e.target.id !== 'drive-menu-btn') dp.classList.remove('open');
 });
 function startGroupDrag(e, members) {
   if (keysDown[' ']) {
@@ -1619,21 +1636,110 @@ function loadBoardData(data) {
   document.getElementById('snap-toggle').checked = snapEnabled; applyTheme(); applyCanvasTransform(); renderAll();
 }
 
+// Drive Sync Logic
 function gapiLoad() { gapi.load('client', async () => await gapi.client.init({ discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"] })); }
-function gisLoad() { tokenClient = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: SCOPES, callback: (res) => { if (res.error) return; document.getElementById('auth-btn').style.display = 'none'; document.getElementById('save-btn').style.display = 'inline-block'; loadBoard(); } }); }
+function gisLoad() { 
+  tokenClient = google.accounts.oauth2.initTokenClient({ 
+    client_id: CLIENT_ID, 
+    scope: SCOPES, 
+    callback: (res) => { 
+      if (res.error) return; 
+      document.getElementById('auth-btn').style.display = 'none'; 
+      document.getElementById('drive-menu-btn').style.display = 'inline-block'; 
+      refreshDriveFiles(); 
+    } 
+  }); 
+}
 document.getElementById('auth-btn').onclick = () => tokenClient.requestAccessToken({ prompt: 'consent' });
 
-async function loadBoard() {
-  const res = await gapi.client.drive.files.list({ q: `name='${FILE_NAME}' and trashed=false`, spaces: 'drive' });
-  if (res.result.files?.length > 0) { fileId = res.result.files[0].id; const fData = await gapi.client.drive.files.get({ fileId, alt: 'media' }); loadBoardData(typeof fData.result === 'string' ? JSON.parse(fData.result) : fData.result); }
-}
-document.getElementById('save-btn').onclick = async () => {
-  const btn = document.getElementById('save-btn'); btn.innerText = 'Syncing...';
-  const boundary = 'foo_bar_baz', metadata = { name: FILE_NAME, mimeType: 'application/json' };
-  const body = "\r\n--" + boundary + "\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n" + JSON.stringify(metadata) + "\r\n--" + boundary + "\r\nContent-Type: application/json\r\n\r\n" + JSON.stringify({nodes, connections, drawings, groups, theme, bgStyle, lineStyle, snapEnabled, panX, panY, zoom}) + "\r\n--" + boundary + "--";
-  await gapi.client.request({ path: fileId ? `/upload/drive/v3/files/${fileId}` : '/upload/drive/v3/files', method: fileId ? 'PATCH' : 'POST', params: { uploadType: 'multipart' }, headers: { 'Content-Type': 'multipart/related; boundary=' + boundary }, body });
-  btn.innerText = 'Synced'; setTimeout(() => btn.innerText = 'Sync', 1500);
+document.getElementById('drive-menu-btn').onclick = (e) => {
+  e.stopPropagation();
+  document.getElementById('drive-panel').classList.toggle('open');
 };
+
+async function refreshDriveFiles() {
+  const listDiv = document.getElementById('drive-file-list');
+  listDiv.innerHTML = '<div style="padding:4px;font-size:12px;">Loading...</div>';
+  try {
+    const res = await gapi.client.drive.files.list({ 
+      q: "(appProperties has { key='isInfiniteBoard' and value='true' } or name='my_personal_board.json') and trashed=false", 
+      spaces: 'drive',
+      fields: 'files(id, name)'
+    });
+    listDiv.innerHTML = '';
+    const files = res.result.files || [];
+    if(files.length === 0) listDiv.innerHTML = '<div style="padding:4px;font-size:12px;opacity:0.7;">No workspaces found.</div>';
+    
+    files.forEach(f => {
+      const btn = document.createElement('button');
+      btn.className = 'file-btn';
+      btn.textContent = f.name;
+      btn.onclick = () => loadFromDrive(f.id, f.name);
+      listDiv.appendChild(btn);
+    });
+  } catch(e) {
+    listDiv.innerHTML = '<div style="padding:4px;font-size:12px;color:var(--danger);">Error loading files.</div>';
+  }
+}
+
+async function loadFromDrive(id, name) {
+  try {
+    const fData = await gapi.client.drive.files.get({ fileId: id, alt: 'media' }); 
+    loadBoardData(typeof fData.result === 'string' ? JSON.parse(fData.result) : fData.result); 
+    currentFileId = id;
+    currentFileName = name;
+    document.getElementById('drive-menu-btn').textContent = name + ' ▾';
+    document.getElementById('drive-panel').classList.remove('open');
+  } catch (e) { alert('Failed to load workspace.'); }
+}
+
+async function performSave(asNew = false) {
+  let targetName = currentFileName;
+  if (asNew || !currentFileId) {
+    const name = prompt('Enter workspace name:', currentFileName);
+    if (!name) return;
+    targetName = name;
+  }
+
+  const btn = document.getElementById(asNew ? 'drive-save-as-btn' : 'drive-save-btn');
+  const originalText = btn.textContent;
+  btn.textContent = 'Saving...';
+
+  try {
+    const boundary = 'foo_bar_baz';
+    const metadata = { name: targetName, mimeType: 'application/json', appProperties: { isInfiniteBoard: 'true' } };
+    const body = "\r\n--" + boundary + "\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n" + 
+                 JSON.stringify(metadata) + "\r\n--" + boundary + "\r\nContent-Type: application/json\r\n\r\n" + 
+                 JSON.stringify({nodes, connections, drawings, groups, theme, bgStyle, lineStyle, snapEnabled, panX, panY, zoom}) + 
+                 "\r\n--" + boundary + "--";
+
+    const isPost = asNew || !currentFileId;
+    const path = isPost ? '/upload/drive/v3/files' : `/upload/drive/v3/files/${currentFileId}`;
+    const method = isPost ? 'POST' : 'PATCH';
+
+    const res = await gapi.client.request({ 
+      path, method, 
+      params: { uploadType: 'multipart', fields: 'id, name' }, 
+      headers: { 'Content-Type': 'multipart/related; boundary=' + boundary }, 
+      body 
+    });
+
+    currentFileId = res.result.id;
+    currentFileName = res.result.name;
+    document.getElementById('drive-menu-btn').textContent = currentFileName + ' ▾';
+    refreshDriveFiles();
+    
+    btn.textContent = 'Saved!';
+    setTimeout(() => btn.textContent = originalText, 2000);
+  } catch(e) {
+    btn.textContent = 'Error!';
+    setTimeout(() => btn.textContent = originalText, 2000);
+    alert('Failed to save to Drive.');
+  }
+}
+
+document.getElementById('drive-save-btn').onclick = () => performSave(false);
+document.getElementById('drive-save-as-btn').onclick = () => performSave(true);
 
 applyTheme(); applyCanvasTransform();
 tryLoadAutosave();
