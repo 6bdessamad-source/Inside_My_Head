@@ -87,6 +87,7 @@ button:active { transform:scale(.95); }
 #style-panel .opt-row { display:flex; align-items:center; gap:6px; }
 #style-panel input[type="color"] { width:28px; height:28px; padding:0; border:1px solid var(--border); border-radius:4px; background:none; cursor:pointer; }
 #style-panel select, #style-panel input[type="number"] { background:var(--bg); border:1px solid var(--border); color:var(--text); border-radius:4px; padding:4px 6px; font-size:12px; outline:none; flex:1; }
+#style-panel input[type="number"] { width:50px; }
 
 /* ------------------------------------------------------------------------- */
 /* CSS: DRIVE INTEGRATION & SETTINGS PANEL                                   */
@@ -210,6 +211,34 @@ button:active { transform:scale(.95); }
 .node.source .src-tag { position:absolute; top:-8px; left:10px; font-size:9px; letter-spacing:.06em; text-transform:uppercase;
   background:var(--accent); color:#000; padding:1px 7px; border-radius:5px; font-weight:700; }
 
+/* NEW: Source status badge */
+.src-status-badge {
+  position:absolute; top:-8px; right:10px; font-size:9px; letter-spacing:.05em; text-transform:uppercase;
+  padding:1px 7px; border-radius:5px; font-weight:700; cursor:pointer; z-index:10;
+  transition: background 0.2s, color 0.2s;
+}
+.src-status-badge[data-status="toread"] { background:#64748b; color:white; }
+.src-status-badge[data-status="reading"] { background:#3b82f6; color:white; }
+.src-status-badge[data-status="important"] { background:#ef4444; color:white; }
+.src-status-badge[data-status="cited"] { background:#10b981; color:white; }
+
+/* NEW: Deadline Timer Node */
+.node.deadline .timer-display {
+  font-size:24px; font-weight:700; text-align:center; margin:8px 0;
+  color: var(--accent);
+}
+.node.deadline .deadline-label {
+  text-align:center; opacity:0.7; font-size:12px;
+}
+
+/* NEW: Question Node */
+.node.question { border-color: #8b5cf6; }
+.node.question .question-icon {
+  position:absolute; top:-10px; left:-10px; width:24px; height:24px; background:#8b5cf6; color:white;
+  border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold;
+  font-size:16px; z-index:5;
+}
+
 /* ------------------------------------------------------------------------- */
 /* CSS: EXTENDED FORMATTING PANELS & MISC UI                                 */
 /* ------------------------------------------------------------------------- */
@@ -292,9 +321,7 @@ button:focus-visible, .ui-btn:focus-visible, input:focus-visible { outline:2px s
 /* Input resest */
 #file-input, #import-input { display:none; }
 
-/* ------------------------------------------------------------------------- */
-/* NEW: CUSTOM SCROLLBARS                                                      */
-/* ------------------------------------------------------------------------- */
+/* NEW: Custom scrollbars */
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
@@ -401,7 +428,7 @@ button:focus-visible, .ui-btn:focus-visible, input:focus-visible { outline:2px s
   <div class="divider"></div>
   <button class="icon-btn" id="dist-h" title="Distribute horizontally"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 4v16"/><path d="M21 4v16"/><path d="M9 8v8"/><path d="M15 8v8"/></svg></button>
   <button class="icon-btn" id="dist-v" title="Distribute vertically"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 3h16"/><path d="M4 21h16"/><path d="M8 9h8"/><path d="M8 15h8"/></svg></button>
-  <!-- NEW: Style button for batch modifications -->
+  <!-- Style button -->
   <div class="divider"></div>
   <button class="icon-btn" id="style-quick-btn" title="Modify properties (batch)" style="width:auto; padding:6px 10px;">Style</button>
 </div>
@@ -460,6 +487,12 @@ button:focus-visible, .ui-btn:focus-visible, input:focus-visible { outline:2px s
     </select>
     <input type="number" id="style-size-val" placeholder="14px" title="Font Size (px)" style="width:60px;" min="8" max="120">
   </div>
+  <!-- NEW: Size adjustments -->
+  <div class="opt-row" style="margin-top:4px;">
+    <label>W</label><input type="number" id="style-width-val" placeholder="Width" style="width:70px;" min="40" max="2000">
+    <label>H</label><input type="number" id="style-height-val" placeholder="Height" style="width:70px;" min="32" max="2000">
+  </div>
+  <button id="style-fit-btn" style="width:100%; margin-top:4px;">Fit to Content</button>
 </div>
 
 <!-- ----------------------------------------------------------------------- -->
@@ -508,6 +541,8 @@ button:focus-visible, .ui-btn:focus-visible, input:focus-visible { outline:2px s
   <button data-action="new-checklist">New Checklist</button>
   <button data-action="new-table">New Table</button>
   <button data-action="new-source">New Source</button>
+  <button data-action="new-question">New Question</button> <!-- NEW -->
+  <button data-action="new-deadline">New Deadline</button> <!-- NEW -->
   <div class="menu-sep"></div>
   <button data-action="paste-canvas">Paste</button>
   <button data-action="select-all">Select All</button>
@@ -538,6 +573,9 @@ button:focus-visible, .ui-btn:focus-visible, input:focus-visible { outline:2px s
   <button class="icon-btn" id="image-btn" title="Image (I)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M21 16l-5.5-5.5L9 17"/></svg></button>
   <button class="icon-btn" id="comment-btn" title="Comment (C)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-4 4z"/></svg></button>
   <button class="icon-btn" id="source-btn" title="Source card (S)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"/><path d="M9 9h7M9 13h7M9 17h4"/></svg></button>
+  <!-- NEW: Question and Deadline buttons -->
+  <button class="icon-btn" id="question-btn" title="Question (?)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.2 9a2.8 2.8 0 1 1 4 2.5c-.9.5-1.4 1-1.4 2"/><circle cx="12" cy="17" r="0.9" fill="currentColor" stroke="none"/></svg></button>
+  <button class="icon-btn" id="deadline-btn" title="Deadline (D)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg></button>
   <div class="divider"></div>
   <button class="icon-btn" id="group-btn" title="Group (Ctrl G)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><path d="M3 14v4a3 3 0 0 0 3 3h4M21 10V6a3 3 0 0 0-3-3h-4" stroke-dasharray="3 2"/></svg></button>
   <button class="icon-btn" id="ungroup-btn" title="Ungroup (Ctrl Shift G)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><path d="M2 22L22 2"/></svg></button>
@@ -585,6 +623,8 @@ button:focus-visible, .ui-btn:focus-visible, input:focus-visible { outline:2px s
       <div class="sc-row"><span>New table</span><kbd>Y</kbd></div>
       <div class="sc-row"><span>New source card</span><kbd>S</kbd></div>
       <div class="sc-row"><span>New comment</span><kbd>C</kbd></div>
+      <div class="sc-row"><span>New question</span><kbd>?</kbd></div> <!-- NEW -->
+      <div class="sc-row"><span>New deadline</span><kbd>D</kbd></div> <!-- NEW -->
       <div class="sc-row"><span>Rich formatting</span><kbd>Ctrl B/I/U</kbd></div>
       <div class="sc-row"><span>Duplicate selection</span><kbd>Ctrl D</kbd></div>
       <div class="sc-row"><span>Copy selection</span><kbd>Ctrl C</kbd></div>
@@ -860,7 +900,7 @@ function closeContextMenu() {
 }
 
 viewport.addEventListener('contextmenu', (e) => {
-  if (e.target.closest('.node')) return; // node will handle it
+  if (e.target.closest('.node')) return;
   e.preventDefault();
   closeContextMenu();
   if (e.target === viewport || e.target === canvas || e.target === connSvg || e.target === drawSvg) {
@@ -892,6 +932,8 @@ viewport.addEventListener('pointerdown', (e) => {
       if (keysDown['k']) return createChecklist(wp);
       if (keysDown['y']) return createTable(wp);
       if (keysDown['s'] && toolMode !== 'draw') return createSource(wp);
+      if (keysDown['?']) return createQuestion(wp); // NEW
+      if (keysDown['d']) return createDeadline(wp); // NEW
       if (keysDown['t']) {
           const n = createRawText(wp);
           setTimeout(() => { const el = canvas.querySelector(`[data-id="${n.id}"]`); if (el) editNode(n, el); }, 50);
@@ -1098,6 +1140,10 @@ function applyStyleToSelected(prop, val) {
     if(prop === 'bgColor') {
       if (n.type === 'rawtext' || n.type === 'image') return;
       n.color = val;
+    } else if (prop === 'width') {
+      n.w = Math.max(40, Number(val));
+    } else if (prop === 'height') {
+      n.h = Math.max(32, Number(val));
     } else n[prop] = val;
     
     const el = canvas.querySelector(`[data-id="${id}"]`);
@@ -1109,6 +1155,8 @@ function applyStyleToSelected(prop, val) {
         n.fontSize = val;
         el.style.fontSize = val ? val + 'px' : '';
       }
+      if(prop === 'width') el.style.width = n.w + 'px';
+      if(prop === 'height') el.style.height = n.h + 'px';
     }
   });
   scheduleAutosave();
@@ -1118,11 +1166,18 @@ document.getElementById('style-bg-val').oninput = (e) => applyStyleToSelected('b
 document.getElementById('style-text-val').oninput = (e) => applyStyleToSelected('textColor', e.target.value);
 document.getElementById('style-font-val').onchange = (e) => applyStyleToSelected('fontFamily', e.target.value);
 document.getElementById('style-size-val').oninput = (e) => applyStyleToSelected('fontSize', e.target.value);
+document.getElementById('style-width-val').oninput = (e) => applyStyleToSelected('width', e.target.value);
+document.getElementById('style-height-val').oninput = (e) => applyStyleToSelected('height', e.target.value);
+document.getElementById('style-fit-btn').onclick = () => {
+  selectedIds.forEach(id => {
+    const n = nodes.find(x => x.id === id);
+    if (n) autoFitNode(n);
+  });
+};
 
 // NEW: Open style panel from align bar with proper positioning
 document.getElementById('style-quick-btn').onclick = () => {
   const panel = document.getElementById('style-panel');
-  // If align bar is open (multiple nodes selected), position below it
   if (selectedIds.size >= 2) {
     panel.style.top = '110px';
   } else {
@@ -1399,12 +1454,47 @@ function renderAll() {
   drawConnections();
   renderDrawings();
   updateGroupFrames();
+  startDeadlineUpdater(); // NEW
+}
+
+// NEW: Deadline updater
+let deadlineInterval = null;
+function startDeadlineUpdater() {
+  if (deadlineInterval) clearInterval(deadlineInterval);
+  deadlineInterval = setInterval(() => {
+    document.querySelectorAll('.node.deadline').forEach(el => {
+      const node = nodes.find(n => n.id === el.dataset.id);
+      if (!node || node.type !== 'deadline') return;
+      const display = el.querySelector('.timer-display');
+      if (display) {
+        display.textContent = formatCountdown(node.deadline);
+      }
+    });
+  }, 1000);
+}
+
+function formatCountdown(deadlineStr) {
+  if (!deadlineStr) return 'No deadline';
+  const deadline = new Date(deadlineStr);
+  const now = new Date();
+  const diff = deadline - now;
+  if (isNaN(diff)) return 'Invalid date';
+  if (diff <= 0) return 'Expired!';
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  const secs = Math.floor((diff % (1000 * 60)) / 1000);
+  if (days > 0) return `${days}d ${hours}h ${mins}m`;
+  if (hours > 0) return `${hours}h ${mins}m ${secs}s`;
+  return `${mins}m ${secs}s`;
 }
 
 function renderNode(node) {
   const el = document.createElement('div');
   el.className = 'node' + (selectedIds.has(node.id) ? ' selected' : '');
   if (node.type === 'comment' && node.collapsed) el.classList.add('comment-collapsed');
+  if (node.type === 'question') el.classList.add('question');
+  if (node.type === 'deadline') el.classList.add('deadline');
   
   el.dataset.id = node.id;
   el.style.width = node.w + 'px'; el.style.height = node.h + 'px';
@@ -1433,16 +1523,21 @@ function renderNode(node) {
   }
 
   // --- TYPE: TEXT / NOTE / COMMENT ---
-  if (node.type === 'note' || node.type === 'comment' || node.type === 'rawtext') {
-    if (node.type === 'note') {
+  if (node.type === 'note' || node.type === 'comment' || node.type === 'rawtext' || node.type === 'question') {
+    if (node.type === 'note' || node.type === 'question') {
       header.style.height = '24px';
       const titleEl = document.createElement('div');
       titleEl.className = 'node-title'; titleEl.contentEditable = 'false';
-      titleEl.dataset.placeholder = 'Untitled'; titleEl.textContent = node.title || '';
+      titleEl.dataset.placeholder = node.type === 'question' ? 'Ask a question...' : 'Untitled';
+      titleEl.textContent = node.title || '';
       titleEl.addEventListener('dblclick', (e) => { e.stopPropagation(); titleEl.contentEditable = 'true'; titleEl.focus(); document.execCommand('selectAll', false, null); });
       titleEl.addEventListener('blur', () => { titleEl.contentEditable = 'false'; node.title = titleEl.textContent.trim(); scheduleAutosave(); });
       titleEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); titleEl.blur(); } if (e.key === 'Escape') { titleEl.textContent = node.title || ''; titleEl.blur(); } });
       header.appendChild(titleEl);
+    }
+    if (node.type === 'question') {
+      const icon = document.createElement('div'); icon.className = 'question-icon'; icon.textContent = '?';
+      el.appendChild(icon);
     }
     if (node.type === 'comment') {
       const icon = document.createElement('div'); icon.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none" width="16" height="16"><path d="M4 5h16v11H9l-4 4z"/></svg>'; icon.style.display = node.collapsed ? 'block' : 'none';
@@ -1451,7 +1546,7 @@ function renderNode(node) {
     }
     const ta = document.createElement('div');
     ta.className = 'rich-text-editor'; ta.contentEditable = 'false';
-    ta.dataset.placeholder = node.type === 'comment' ? 'Add comment...' : node.type === 'rawtext' ? 'Type text here...' : 'Double-click to edit...';
+    ta.dataset.placeholder = node.type === 'comment' ? 'Add comment...' : node.type === 'rawtext' ? 'Type text here...' : node.type === 'question' ? 'Type your question...' : 'Double-click to edit...';
     ta.innerHTML = node.html || node.text || '';
     ta.oninput = () => node.html = ta.innerHTML;
     ta.ondblclick = (e) => { e.stopPropagation(); ta.contentEditable = 'true'; ta.focus(); };
@@ -1463,6 +1558,30 @@ function renderNode(node) {
     ta.onpointerdown = e => { if (ta.contentEditable === 'false') e.preventDefault(); else e.stopPropagation(); };
     ta.onfocus = () => showTextFormatBar();
     body.appendChild(ta);
+  } 
+  // --- TYPE: DEADLINE ---
+  else if (node.type === 'deadline') {
+    const label = document.createElement('div');
+    label.className = 'deadline-label'; label.textContent = node.title || 'Deadline';
+    label.contentEditable = 'false';
+    label.ondblclick = (e) => { e.stopPropagation(); label.contentEditable = 'true'; label.focus(); };
+    label.onblur = () => { label.contentEditable = 'false'; node.title = label.textContent.trim() || 'Deadline'; };
+    const timer = document.createElement('div');
+    timer.className = 'timer-display';
+    timer.textContent = formatCountdown(node.deadline);
+    body.appendChild(label);
+    body.appendChild(timer);
+    // Double-click timer to edit deadline
+    timer.addEventListener('dblclick', (e) => {
+      e.stopPropagation();
+      const newDeadline = prompt('Set deadline (YYYY-MM-DD HH:MM)', node.deadline ? node.deadline.replace('T',' ').slice(0,16) : '');
+      if (newDeadline) {
+        pushHistory();
+        node.deadline = newDeadline.replace(' ', 'T');
+        timer.textContent = formatCountdown(node.deadline);
+        scheduleAutosave();
+      }
+    });
   } 
   // --- TYPE: SHAPE ---
   else if (node.type === 'shape') {
@@ -1597,6 +1716,32 @@ function renderNode(node) {
   else if (node.type === 'source') {
     el.classList.add('source');
     const tag = document.createElement('div'); tag.className = 'src-tag'; tag.textContent = 'Source'; el.appendChild(tag);
+    // NEW: Status badge
+    const statusMap = {
+      'toread': 'To Read',
+      'reading': 'Reading',
+      'important': 'Important',
+      'cited': 'Cited',
+      'none': 'Status'
+    };
+    const statusBadge = document.createElement('div');
+    statusBadge.className = 'src-status-badge';
+    statusBadge.dataset.status = node.status || 'none';
+    statusBadge.textContent = statusMap[node.status || 'none'];
+    statusBadge.title = 'Click to change status';
+    statusBadge.onclick = (e) => {
+      e.stopPropagation();
+      const statuses = ['toread', 'reading', 'important', 'cited', 'none'];
+      const current = statuses.indexOf(node.status || 'none');
+      const next = (current + 1) % statuses.length;
+      pushHistory();
+      node.status = statuses[next];
+      statusBadge.dataset.status = node.status;
+      statusBadge.textContent = statusMap[node.status];
+      scheduleAutosave();
+    };
+    el.appendChild(statusBadge);
+    
     const srcBody = document.createElement('div'); srcBody.className = 'src-body';
     const titleInput = document.createElement('input'); titleInput.className = 'src-field src-title'; titleInput.placeholder = 'Title';
     titleInput.value = node.title || ''; titleInput.oninput = e => node.title = e.target.value;
@@ -1637,7 +1782,7 @@ function renderNode(node) {
     dragCandidate = { event: e, nodeId: node.id, duplicate: e.altKey, startX: e.clientX, startY: e.clientY };
   });
 
-  // NEW: Alt+Click to auto-fit node size
+  // Alt+Click to auto-fit node size
   el.addEventListener('click', (e) => {
     if (e.altKey) {
       e.stopPropagation();
@@ -1696,6 +1841,30 @@ function renderNode(node) {
   canvas.appendChild(el);
 }
 
+function editNode(node, el) {
+  if (node.type === 'comment' && node.collapsed) {
+    node.collapsed = false; el.classList.remove('comment-collapsed'); el.style.width = node.w + 'px'; el.style.height = node.h + 'px';
+    const icon = el.querySelector('svg')?.parentElement; if (icon) icon.style.display = 'none';
+  }
+  let target = null;
+  if (node.type === 'note' || node.type === 'comment' || node.type === 'rawtext' || node.type === 'question') target = el.querySelector('.rich-text-editor');
+  else if (node.type === 'shape') target = el.querySelector('.label');
+  else if (node.type === 'checklist') target = el.querySelector('.checklist-item span');
+  else if (node.type === 'table') target = el.querySelector('td');
+  else if (node.type === 'source') target = el.querySelector('.src-title');
+  else if (node.type === 'deadline') target = el.querySelector('.timer-display');
+  if (!target) return;
+  
+  if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+    target.readOnly = false; target.focus(); target.select?.();
+  } else {
+    target.contentEditable = 'true'; target.focus();
+    const r = document.createRange(); r.selectNodeContents(target); r.collapse(false);
+    const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+    if (target.classList.contains('rich-text-editor')) showTextFormatBar();
+  }
+}
+
 // NEW: Auto-fit node to content
 function autoFitNode(node) {
   const el = canvas.querySelector(`[data-id="${node.id}"]`);
@@ -1704,10 +1873,9 @@ function autoFitNode(node) {
   
   let minW = 80, minH = 40, padding = 20;
   
-  if (node.type === 'note' || node.type === 'comment' || node.type === 'rawtext') {
+  if (node.type === 'note' || node.type === 'comment' || node.type === 'rawtext' || node.type === 'question') {
     const ta = el.querySelector('.rich-text-editor');
     if (ta) {
-      // Temporarily make it not overflow to measure
       const clone = ta.cloneNode(true);
       clone.style.position = 'absolute';
       clone.style.visibility = 'hidden';
@@ -1717,7 +1885,7 @@ function autoFitNode(node) {
       document.body.appendChild(clone);
       const rect = clone.getBoundingClientRect();
       node.w = Math.max(minW, Math.ceil(rect.width) + padding);
-      node.h = Math.max(minH, Math.ceil(rect.height) + padding + (node.type === 'note' ? 30 : 0)); // extra for header
+      node.h = Math.max(minH, Math.ceil(rect.height) + padding + (node.type === 'note' || node.type === 'question' ? 30 : 0));
       document.body.removeChild(clone);
     }
   } else if (node.type === 'shape') {
@@ -1732,7 +1900,6 @@ function autoFitNode(node) {
       node.h = Math.max(minH, 40);
     }
   } else if (node.type === 'checklist') {
-    // Estimate based on items count and max text length
     let maxTextLen = 0;
     node.items.forEach(item => {
       const len = item.text ? item.text.length : 0;
@@ -1741,22 +1908,21 @@ function autoFitNode(node) {
     node.w = Math.max(200, maxTextLen * 8 + 100);
     node.h = Math.max(100, node.items.length * 35 + 50);
   } else if (node.type === 'table') {
-    // Rows and columns
     const cols = node.rows[0] ? node.rows[0].length : 1;
     const rows = node.rows.length;
     node.w = Math.max(200, cols * 100);
     node.h = Math.max(60, rows * 30 + 30);
   } else if (node.type === 'source') {
-    // Maybe based on notes length
     const notesLen = node.notes ? node.notes.length : 0;
     node.h = Math.max(150, notesLen * 2 + 100);
     node.w = Math.max(220, node.w);
+  } else if (node.type === 'deadline') {
+    node.w = Math.max(180, node.w);
+    node.h = Math.max(80, node.h);
   }
   
-  // Apply new size
   el.style.width = node.w + 'px';
   el.style.height = node.h + 'px';
-  // For comments collapsed? not relevant
   drawConnections();
   updateGroupFrames();
   scheduleAutosave();
@@ -1798,7 +1964,6 @@ contextMenu.addEventListener('click', (e) => {
   if (action === 'edit') { const n = getSelectedNodes()[0]; if (n) editNode(n, canvas.querySelector(`[data-id="${n.id}"]`)); }
   else if (action === 'style') { 
     const p = document.getElementById('style-panel');
-    // Position below align bar if open
     if (selectedIds.size >= 2) p.style.top = '110px'; else p.style.top = '70px';
     p.style.right = '20px';
     p.classList.add('open'); 
@@ -1831,6 +1996,8 @@ canvasContextMenu.addEventListener('click', (e) => {
     case 'new-checklist': createChecklist(); break;
     case 'new-table': createTable(); break;
     case 'new-source': createSource(); break;
+    case 'new-question': createQuestion(); break; // NEW
+    case 'new-deadline': createDeadline(); break; // NEW
     case 'paste-canvas': pasteNodes(); break;
     case 'select-all': nodes.forEach(n => selectedIds.add(n.id)); updateSelectionUI(); break;
     case 'clear-board': if(confirm('Clear board?')){pushHistory();nodes=[];connections=[];drawings=[];deselectAll();renderAll();scheduleAutosave();} break;
@@ -1996,11 +2163,12 @@ document.getElementById('pen-width').oninput = (e) => penWidth = Number(e.target
 function stripHtml(html) { const tmp = document.createElement("DIV"); tmp.innerHTML = html; return tmp.textContent || tmp.innerText || ""; }
 function nodeSearchText(n) {
   if (n.type === 'note') return [n.title, stripHtml(n.html || n.text || '')].filter(Boolean).join(' ');
-  if (n.type === 'comment' || n.type === 'rawtext') return stripHtml(n.html || n.text || '');
+  if (n.type === 'comment' || n.type === 'rawtext' || n.type === 'question') return stripHtml(n.html || n.text || '');
   if (n.type === 'shape') return n.text || '';
   if (n.type === 'checklist') return (n.items||[]).map(i=>i.text).join(' ');
   if (n.type === 'table') return (n.rows||[]).flat().join(' ');
   if (n.type === 'source') return [n.title, n.meta, n.notes].filter(Boolean).join(' ');
+  if (n.type === 'deadline') return n.title || '';
   return '';
 }
 let searchMatches = [], searchIndex = -1;
@@ -2083,11 +2251,14 @@ document.addEventListener('keydown', (e) => {
   }
 
   if (e.key === 'Delete' || e.key === 'Backspace') { if (selectedIds.size > 0) return deleteSelected(); if (selectedConnId) return deleteConnection(selectedConnId); }
-  if (e.key === '?') { shortcutsPanel.classList.toggle('open'); return; }
+  if (e.key === '?') { 
+    if (!isTyping()) { createQuestion(); return; }
+  }
+  if (e.key.toLowerCase() === 'd' && !e.shiftKey && !meta) { createDeadline(); return; } // NEW
   if (e.key.toLowerCase() === 'v') return setTool('select');
   if (e.key.toLowerCase() === 'p') return setTool('draw');
   if (e.key.toLowerCase() === 't') return setTool('text');
-  if (e.key.toLowerCase() === 'e' && !e.shiftKey) { setTool('draw'); penMode = 'eraser'; updatePenModeUI(); return; }
+  if (e.key.toLowerCase() === 'e' && !e.shiftKey && !meta) { setTool('draw'); penMode = 'eraser'; updatePenModeUI(); return; }
   if (e.key === '!' && e.shiftKey) return zoomToFit(); 
   if (e.key === '@' && e.shiftKey) return zoomToSelected(); 
 
@@ -2110,12 +2281,16 @@ function createComment(pos) { const c = pos || centerWorld(); const n = { id: ui
 function createShape(shape, pos) { const c = pos || centerWorld(); const n = { id: uid(), type: 'shape', shape, x: c.x-80, y: c.y-60, w: 160, h: 120, text: '', color: 'var(--surface)' }; nodes.push(n); renderNode(n); select(n.id); }
 function createChecklist(pos) { const c = pos || centerWorld(); const n = { id: uid(), type: 'checklist', x: c.x-120, y: c.y-100, w: 240, h: 200, items: [{text:'Task', done:false}], color: 'var(--surface)' }; nodes.push(n); renderNode(n); select(n.id); }
 function createTable(pos) { const c = pos || centerWorld(); const n = { id: uid(), type: 'table', x: c.x-150, y: c.y-100, w: 300, h: 150, rows: [['H1','H2','H3'],['','',''],['','','']], color: 'var(--surface)' }; nodes.push(n); renderNode(n); select(n.id); }
-function createSource(pos) { const c = pos || centerWorld(); const n = { id: uid(), type: 'source', x: c.x-130, y: c.y-90, w: 260, h: 190, title: '', meta: '', notes: '', color: 'var(--surface)' }; nodes.push(n); renderNode(n); select(n.id); }
+function createSource(pos) { const c = pos || centerWorld(); const n = { id: uid(), type: 'source', x: c.x-130, y: c.y-90, w: 260, h: 190, title: '', meta: '', notes: '', color: 'var(--surface)', status: 'toread' }; nodes.push(n); renderNode(n); select(n.id); }
 function createImage(src, pos) { const c = pos || centerWorld(); const n = { id: uid(), type: 'image', x: c.x-120, y: c.y-90, w: 240, h: 180, src }; nodes.push(n); renderNode(n); select(n.id); }
 function createRawText(pos) { const c = pos || centerWorld(); const n = { id: uid(), type: 'rawtext', x: c.x-60, y: c.y-25, w: 220, h: 50, html: '', color: 'transparent' }; nodes.push(n); renderNode(n); select(n.id); return n; }
+// NEW: createQuestion
+function createQuestion(pos) { const c = pos || centerWorld(); const n = { id: uid(), type: 'question', x: c.x-120, y: c.y-80, w: 240, h: 160, html: '', title: '', color: 'var(--surface)' }; nodes.push(n); renderNode(n); select(n.id); }
+// NEW: createDeadline
+function createDeadline(pos) { const c = pos || centerWorld(); const defaultDate = new Date(Date.now() + 24*60*60*1000).toISOString().slice(0,16).replace('T',' '); const deadlineStr = prompt('Enter deadline (YYYY-MM-DD HH:MM):', defaultDate); if (!deadlineStr) return; const n = { id: uid(), type: 'deadline', x: c.x-100, y: c.y-60, w: 200, h: 100, title: 'Deadline', deadline: deadlineStr.replace(' ', 'T'), color: 'var(--surface)' }; nodes.push(n); renderNode(n); select(n.id); }
 
-[createNote, createComment, createShape, createChecklist, createTable, createSource, createImage, createRawText].forEach(fn => {
-  const orig = fn; window[fn.name] = (...args) => { pushHistory(); const r = orig(...args); scheduleAutosave(); return r; };
+[createNote, createComment, createShape, createChecklist, createTable, createSource, createImage, createRawText, createQuestion, createDeadline].forEach(fn => {
+  const orig = fn; window[fn.name] = (...args) => { pushHistory(); const r = orig(...args); if (r) scheduleAutosave(); return r; };
 });
 
 document.getElementById('note-btn').onclick = () => createNote();
@@ -2128,6 +2303,9 @@ document.getElementById('file-input').onchange = (e) => {
   const file = e.target.files[0]; if (!file) return;
   const reader = new FileReader(); reader.onload = () => createImage(reader.result, pendingImagePos); reader.readAsDataURL(file); e.target.value = '';
 };
+document.getElementById('question-btn').onclick = () => createQuestion();
+document.getElementById('deadline-btn').onclick = () => createDeadline();
+
 const shapeMenu = document.getElementById('shape-menu');
 document.getElementById('shape-btn').onclick = (e) => { shapeMenu.style.left = e.target.getBoundingClientRect().left + 'px'; shapeMenu.classList.toggle('open'); };
 shapeMenu.querySelectorAll('button').forEach(b => b.onclick = () => { createShape(b.dataset.shape); shapeMenu.classList.remove('open'); });
