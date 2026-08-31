@@ -24,6 +24,7 @@ body { margin:0; overflow:hidden; background:var(--bg); color:var(--text);
 #viewport[data-mode="pan"] { cursor:grab; }
 #viewport.panning { cursor:grabbing; }
 #viewport[data-mode="draw"] { cursor:crosshair; }
+#viewport[data-mode="text"] { cursor:text; }
 
 #canvas { position:absolute; top:0; left:0; width:0; height:0; transform-origin:0 0; will-change:transform; }
 #drawSvg, #connSvg { position:absolute; top:0; left:0; overflow:visible; pointer-events:none; }
@@ -80,23 +81,38 @@ button:active { transform:scale(.95); }
 
 /* Nodes */
 .node { position:absolute; top:0; left:0; background:var(--surface); border:1px solid var(--border);
-  border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,.35); display:flex; flex-direction:column; cursor:grab; }
+  border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,.35); display:flex; flex-direction:column; cursor:grab; user-select:none; }
 .node:active { cursor:grabbing; }
 .node.selected { outline:2px solid var(--accent); outline-offset:2px; }
 .node.highlighted { box-shadow:0 0 0 3px var(--highlight), 0 4px 16px rgba(0,0,0,.35); }
 .node-header { height:20px; background:rgba(128,128,128,.08); border-bottom:1px solid var(--border);
   border-radius:8px 8px 0 0; flex-shrink:0; }
 .node-body { flex:1; padding:10px; position:relative; overflow:auto; display:flex; flex-direction:column; }
+.node-body * { user-select:none; }
+
+/* Raw Text Node */
+.node.rawtext { border:1px dashed transparent; box-shadow:none; }
+.node.rawtext:hover { border:1px dashed var(--border); }
+.node.rawtext.selected { outline:2px solid var(--accent); outline-offset:2px; border-color:transparent; }
 
 /* Comments */
 .node.comment-collapsed { width:32px !important; height:32px !important; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; background:var(--accent); color:#000; overflow:hidden; }
 .node.comment-collapsed .node-header, .node.comment-collapsed .resize-handle { display:none; }
 .node.comment-collapsed .node-body { display:none; }
 
-.node textarea { width:100%; height:100%; background:transparent; border:none; color:var(--text);
-  resize:none; outline:none; font-family:inherit; font-size:14px; line-height:1.4; cursor:text; }
-.node textarea[readonly] { cursor:grab; user-select:none; }
-.node textarea[readonly]:active { cursor:grabbing; }
+/* Rich Text Editor */
+.node .rich-text-editor { width:100%; height:100%; background:transparent; border:none; color:var(--text);
+  outline:none; font-family:inherit; font-size:14px; line-height:1.5; word-break:break-word; cursor:text; overflow:auto; }
+.node .rich-text-editor[contenteditable="false"] { cursor:grab; user-select:none; }
+.node .rich-text-editor[contenteditable="false"]:active { cursor:grabbing; }
+.node .rich-text-editor:empty:before { content:attr(data-placeholder); opacity:.5; pointer-events:none; }
+
+/* Allow text selection when editing */
+.node .rich-text-editor[contenteditable="true"], 
+.node .label[contenteditable="true"],
+.node td[contenteditable="true"],
+.node span[contenteditable="true"],
+.node input, .node textarea { user-select:text; }
 
 .node .label { width:100%; height:100%; outline:none; display:flex; align-items:center; justify-content:center; text-align:center; font-size:14px; overflow:auto; word-break:break-word; cursor:text; }
 .node .label[contenteditable="false"] { cursor:grab; }
@@ -140,7 +156,7 @@ button:active { transform:scale(.95); }
   overflow:hidden; text-overflow:ellipsis; outline:none; opacity:.85; cursor:text; }
 .node-title[contenteditable="false"] { cursor:grab; }
 .node-title:empty:before { content: attr(data-placeholder); opacity:.4; font-weight:500; }
-.node-title[contenteditable="true"] { white-space:normal; overflow:visible; opacity:1; background:var(--bg); border-radius:4px; }
+.node-title[contenteditable="true"] { white-space:normal; overflow:visible; opacity:1; background:var(--bg); border-radius:4px; user-select:text; }
 
 .color-row { position:absolute; top:-34px; left:0; display:none; gap:4px; background:var(--panel); padding:5px; border-radius:8px; border:1px solid var(--border); z-index:7; }
 .color-row.open { display:flex; }
@@ -156,6 +172,13 @@ button:focus-visible, .ui-btn:focus-visible, input:focus-visible { outline:2px s
 
 /* Group toolbar dividers */
 .divider { width:1px; align-self:stretch; background:var(--border); margin:2px 2px; flex-shrink:0; }
+
+/* Text Formatting Bar */
+#text-format-bar { position:fixed; top:70px; left:50%; transform:translateX(-50%); z-index:999;
+  display:none; align-items:center; gap:4px; background:var(--panel); backdrop-filter:blur(12px);
+  padding:5px 8px; border-radius:10px; border:1px solid var(--border); box-shadow:0 8px 24px rgba(0,0,0,.4); }
+#text-format-bar.open { display:flex; }
+#text-format-bar button { padding:6px; font-size:14px; width:30px; text-align:center; display:flex; justify-content:center; align-items:center; }
 
 /* Contextual align bar */
 #align-bar { position:fixed; top:70px; left:50%; transform:translateX(-50%); z-index:999;
@@ -270,13 +293,14 @@ input[type="range"] { accent-color:var(--accent); width:70px; }
     <div class="sc-grid">
       <div class="sc-row"><span>Select tool</span><kbd>V</kbd></div>
       <div class="sc-row"><span>Pan canvas</span><kbd>Space</kbd> + drag</div>
+      <div class="sc-row"><span>Text tool</span><kbd>T</kbd></div>
       <div class="sc-row"><span>Pen tool</span><kbd>P</kbd></div>
-      <div class="sc-row"><span>Connect tool</span><kbd>L</kbd></div>
       <div class="sc-row"><span>New note</span><kbd>N</kbd></div>
-      <div class="sc-row"><span>New checklist</span><kbd>T</kbd></div>
+      <div class="sc-row"><span>New checklist</span><kbd>K</kbd></div>
       <div class="sc-row"><span>New table</span><kbd>Y</kbd></div>
       <div class="sc-row"><span>New source card</span><kbd>S</kbd></div>
       <div class="sc-row"><span>New comment</span><kbd>C</kbd></div>
+      <div class="sc-row"><span>Rich formatting</span><kbd>Ctrl B/I/U</kbd></div>
       <div class="sc-row"><span>Duplicate selection</span><kbd>Ctrl D</kbd></div>
       <div class="sc-row"><span>Select all</span><kbd>Ctrl A</kbd></div>
       <div class="sc-row"><span>Delete selection</span><kbd>Del</kbd></div>
@@ -311,6 +335,19 @@ input[type="range"] { accent-color:var(--accent); width:70px; }
   <button class="icon-btn" id="search-prev" title="Previous match"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
   <button class="icon-btn" id="search-next" title="Next match"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></button>
   <button class="icon-btn" id="search-close" title="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+</div>
+
+<div id="text-format-bar">
+  <button class="icon-btn" title="Bold (Ctrl+B)" onpointerdown="event.preventDefault(); document.execCommand('bold');"><b>B</b></button>
+  <button class="icon-btn" title="Italic (Ctrl+I)" onpointerdown="event.preventDefault(); document.execCommand('italic');" style="font-style:italic; font-family:serif;">I</button>
+  <button class="icon-btn" title="Underline (Ctrl+U)" onpointerdown="event.preventDefault(); document.execCommand('underline');" style="text-decoration:underline;">U</button>
+  <div class="divider"></div>
+  <button class="icon-btn" title="Align Left" onpointerdown="event.preventDefault(); document.execCommand('justifyLeft');"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M4 6h16M4 12h10M4 18h16"/></svg></button>
+  <button class="icon-btn" title="Align Center" onpointerdown="event.preventDefault(); document.execCommand('justifyCenter');"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M4 6h16M7 12h10M4 18h16"/></svg></button>
+  <button class="icon-btn" title="Align Right" onpointerdown="event.preventDefault(); document.execCommand('justifyRight');"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M4 6h16M10 12h10M4 18h16"/></svg></button>
+  <button class="icon-btn" title="Justify" onpointerdown="event.preventDefault(); document.execCommand('justifyFull');"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+  <div class="divider"></div>
+  <button class="icon-btn" title="Clear Format" onpointerdown="event.preventDefault(); document.execCommand('removeFormat');"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
 </div>
 
 <div id="align-bar">
@@ -386,6 +423,7 @@ input[type="range"] { accent-color:var(--accent); width:70px; }
 
 <div id="tools-bar">
   <button class="icon-btn active-tool" id="tool-select" title="Select (V)"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M5 3v16l3.5-3.5L11 21l2-1-2.5-5.5H16z"/></svg></button>
+  <button class="icon-btn" id="tool-text" title="Text (T)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"></polyline><line x1="9" y1="20" x2="15" y2="20"></line><line x1="12" y1="4" x2="12" y2="20"></line></svg></button>
   <button class="icon-btn" id="tool-draw" title="Pen (P)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l1-4L16 5l3 3L8 19l-4 1z"/><path d="M14 7l3 3"/></svg></button>
 </div>
 
@@ -418,7 +456,7 @@ input[type="range"] { accent-color:var(--accent); width:70px; }
   <div class="divider"></div>
   <button class="icon-btn" id="note-btn" title="Note (N)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></button>
   <button class="icon-btn" id="shape-btn" title="Shape"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="10" width="9" height="9" rx="1.5"/><circle cx="16.5" cy="7.5" r="4.5"/></svg></button>
-  <button class="icon-btn" id="chk-btn" title="Checklist (T)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="6" height="6" rx="1"/><path d="M5.3 7l1 1 2-2"/><path d="M12 7h9"/><rect x="3" y="14" width="6" height="6" rx="1"/><path d="M12 17h9"/></svg></button>
+  <button class="icon-btn" id="chk-btn" title="Checklist (K)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="6" height="6" rx="1"/><path d="M5.3 7l1 1 2-2"/><path d="M12 7h9"/><rect x="3" y="14" width="6" height="6" rx="1"/><path d="M12 17h9"/></svg></button>
   <button class="icon-btn" id="tbl-btn" title="Table (Y)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M3 16h18M9 4v16M15 4v16"/></svg></button>
   <button class="icon-btn" id="image-btn" title="Image (I)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M21 16l-5.5-5.5L9 17"/></svg></button>
   <button class="icon-btn" id="comment-btn" title="Comment (C)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-4 4z"/></svg></button>
@@ -468,18 +506,19 @@ const uid = () => 'n' + (Date.now().toString(36)) + (idSeed++);
 const PALETTE = ['#1e1e1e', '#d4af37', '#e57373', '#64b5f6', '#81c784', '#ffb74d', '#ba68c8'];
 let penColor = PALETTE[1], penWidth = 3, penMode = 'pen';
 
-// Modes: select, pan, draw, connect
+// Modes: select, text, pan, draw
 let toolMode = 'select';
 function setTool(mode) {
   toolMode = mode;
-  viewport.setAttribute('data-mode', mode === 'connect' ? 'draw' : mode);
+  viewport.setAttribute('data-mode', mode);
   document.querySelectorAll('#tools-bar button').forEach(b => b.classList.remove('active-tool'));
   const toolBtn = document.getElementById('tool-'+mode);
   if (toolBtn) toolBtn.classList.add('active-tool');
   document.getElementById('pen-bar').classList.toggle('open', mode === 'draw');
-  if (mode === 'draw' || mode === 'pan' || mode === 'connect') deselectAll();
+  if (mode === 'draw' || mode === 'pan' || mode === 'text') deselectAll();
 }
 document.getElementById('tool-select').onclick = () => setTool('select');
+document.getElementById('tool-text').onclick = () => setTool('text');
 document.getElementById('tool-draw').onclick = () => setTool('draw');
 
 // ===================== HISTORY (undo/redo) =====================
@@ -558,6 +597,9 @@ let pendingImagePos = null;
 const keysDown = {};
 const isTyping = () => { const a = document.activeElement; return !!(a && (a.tagName === 'TEXTAREA' || a.isContentEditable || a.tagName === 'INPUT')); };
 
+function showTextFormatBar() { document.getElementById('text-format-bar').classList.add('open'); }
+function hideTextFormatBar() { document.getElementById('text-format-bar').classList.remove('open'); }
+
 // ===================== TRANSFORM & RENDER =====================
 function applyTheme() {
   document.body.setAttribute('data-theme', theme);
@@ -625,16 +667,27 @@ viewport.addEventListener('pointerdown', (e) => {
     if (!isTyping()) {
       if (keysDown['n']) return createNote(wp);
       if (keysDown['c']) return createComment(wp);
-      if (keysDown['t']) return createChecklist(wp);
+      if (keysDown['k']) return createChecklist(wp);
       if (keysDown['y']) return createTable(wp);
       if (keysDown['s'] && toolMode !== 'draw') return createSource(wp);
+      if (keysDown['t']) {
+          const n = createRawText(wp);
+          setTimeout(() => { const el = canvas.querySelector(`[data-id="${n.id}"]`); if (el) editNode(n, el); }, 50);
+          return;
+      }
     }
 
-    // Hold Space to pan. There is intentionally no Pan button.
     if (keysDown[' ']) {
       isPanning = true;
       panStartX = e.clientX - panX; panStartY = e.clientY - panY;
       viewport.classList.add('panning');
+      return;
+    }
+
+    if (toolMode === 'text') {
+      const n = createRawText(wp);
+      setTool('select');
+      setTimeout(() => { const el = canvas.querySelector(`[data-id="${n.id}"]`); if (el) editNode(n, el); }, 50);
       return;
     }
 
@@ -650,8 +703,6 @@ viewport.addEventListener('pointerdown', (e) => {
       drawSvg.appendChild(currentPathEl);
       return;
     }
-
-    if (toolMode === 'connect') return;
 
     marqueeState = { startX: wp.x, startY: wp.y };
     marqueeEl.style.display = 'block';
@@ -876,7 +927,7 @@ function startGroupDrag(e, members) {
     isPanning = true; panStartX = e.clientX - panX; panStartY = e.clientY - panY; viewport.classList.add('panning');
     return;
   }
-  if (toolMode === 'draw' || toolMode === 'connect' || e.button !== 0) return;
+  if (toolMode === 'draw' || e.button !== 0) return;
   e.stopPropagation();
   selectedIds.clear();
   members.forEach(n => selectedIds.add(n.id));
@@ -1055,13 +1106,25 @@ function renderNode(node) {
   el.dataset.id = node.id;
   el.style.width = node.w + 'px'; el.style.height = node.h + 'px';
   el.style.transform = `translate(${node.x}px, ${node.y}px)`;
-  if (node.type !== 'image') el.style.background = node.color || 'var(--surface)';
+  if (node.type !== 'image' && node.type !== 'rawtext') el.style.background = node.color || 'var(--surface)';
 
-  const header = document.createElement('div'); header.className = 'node-header'; el.appendChild(header);
+  let header;
+  if (node.type !== 'rawtext' && node.shape !== 'diamond') {
+    header = document.createElement('div'); header.className = 'node-header'; el.appendChild(header);
+  }
   const body = document.createElement('div'); body.className = 'node-body';
-  body.style.padding = node.type === 'image' ? '0' : '10px';
+  body.style.padding = (node.type === 'image' || node.type === 'rawtext') ? '0' : '10px';
 
-  if (node.type === 'note' || node.type === 'comment') {
+  if (node.type === 'rawtext') {
+    el.classList.add('rawtext');
+    el.style.background = 'transparent';
+    el.style.border = 'none';
+    el.style.boxShadow = 'none';
+  } else if (node.shape === 'diamond') {
+    el.style.clipPath = 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)';
+  }
+
+  if (node.type === 'note' || node.type === 'comment' || node.type === 'rawtext') {
     if (node.type === 'note') {
       header.style.height = '24px';
       const titleEl = document.createElement('div');
@@ -1072,27 +1135,40 @@ function renderNode(node) {
       titleEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); titleEl.blur(); } if (e.key === 'Escape') { titleEl.textContent = node.title || ''; titleEl.blur(); } });
       header.appendChild(titleEl);
     }
-    if(node.type === 'comment') {
+    if (node.type === 'comment') {
       const icon = document.createElement('div'); icon.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none" width="16" height="16"><path d="M4 5h16v11H9l-4 4z"/></svg>'; icon.style.display = node.collapsed ? 'block' : 'none';
       el.appendChild(icon);
       el.ondblclick = (e) => { e.stopPropagation(); node.collapsed = false; el.classList.remove('comment-collapsed'); el.style.width=node.w+'px'; el.style.height=node.h+'px'; icon.style.display='none'; }
     }
-    const ta = document.createElement('textarea');
-    ta.value = node.text || ''; ta.readOnly = true; ta.placeholder = node.type==='comment'?'Add comment...':'Double-click to edit...';
-    ta.oninput = e => node.text = e.target.value;
-    ta.ondblclick = (e) => { e.stopPropagation(); ta.readOnly = false; ta.focus(); };
-    ta.onblur = () => { ta.readOnly = true; if(node.type==='comment' && !node.text) { node.collapsed = true; el.classList.add('comment-collapsed'); el.querySelector('div').style.display='block';} };
-    ta.onpointerdown = e => { if(!ta.readOnly) e.stopPropagation(); };
+    const ta = document.createElement('div');
+    ta.className = 'rich-text-editor';
+    ta.contentEditable = 'false';
+    ta.dataset.placeholder = node.type === 'comment' ? 'Add comment...' : node.type === 'rawtext' ? 'Type text here...' : 'Double-click to edit...';
+    ta.innerHTML = node.html || node.text || '';
+    ta.oninput = () => node.html = ta.innerHTML;
+    ta.ondblclick = (e) => { e.stopPropagation(); ta.contentEditable = 'true'; ta.focus(); };
+    ta.onblur = () => { 
+      ta.contentEditable = 'false'; 
+      node.html = ta.innerHTML; 
+      hideTextFormatBar(); 
+      if (node.type === 'comment' && !ta.textContent.trim()) { 
+        node.collapsed = true; el.classList.add('comment-collapsed'); el.querySelector('div').style.display='block';
+      }
+      if (node.type === 'rawtext' && !ta.textContent.trim() && !ta.querySelector('img')) {
+        nodes = nodes.filter(n => n.id !== node.id); el.remove(); scheduleAutosave();
+      }
+    };
+    ta.onpointerdown = e => { if (ta.contentEditable === 'false') e.preventDefault(); else e.stopPropagation(); };
+    ta.onfocus = () => showTextFormatBar();
     body.appendChild(ta);
   } else if (node.type === 'shape') {
     if (node.shape === 'circle') el.style.borderRadius = '50%';
-    if (node.shape === 'diamond') { el.style.clipPath = 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)'; header.style.display = 'none'; }
     const label = document.createElement('div');
     label.className = 'label'; label.contentEditable = "false"; label.innerText = node.text || '';
     label.oninput = () => node.text = label.innerText;
     label.ondblclick = (e) => { e.stopPropagation(); label.contentEditable = "true"; label.focus(); };
     label.onblur = () => label.contentEditable = "false";
-    label.onpointerdown = e => { if(label.contentEditable === "true") e.stopPropagation(); };
+    label.onpointerdown = e => { if (label.contentEditable === "false") e.preventDefault(); else e.stopPropagation(); };
     body.appendChild(label);
   } else if (node.type === 'checklist') {
     const renderItems = () => {
@@ -1104,7 +1180,7 @@ function renderNode(node) {
         const txt = document.createElement('span'); txt.innerText = item.text; txt.contentEditable = "false";
         txt.ondblclick = (e) => { e.stopPropagation(); txt.contentEditable = "true"; txt.focus(); };
         txt.onblur = () => { txt.contentEditable = "false"; item.text = txt.innerText; };
-        txt.onpointerdown = e => { if(txt.contentEditable==="true") e.stopPropagation(); };
+        txt.onpointerdown = e => { if (txt.contentEditable==="false") e.preventDefault(); else e.stopPropagation(); };
         row.append(cb, txt); body.appendChild(row);
       });
       const addBtn = document.createElement('button'); addBtn.className = 'add-chk-btn'; addBtn.innerText = '+ Add item';
@@ -1120,7 +1196,7 @@ function renderNode(node) {
         const td = document.createElement('td'); td.innerText = cText; td.contentEditable = "false";
         td.ondblclick = (e) => { e.stopPropagation(); td.contentEditable = "true"; td.focus(); };
         td.onblur = () => { td.contentEditable = "false"; node.rows[rIdx][cIdx] = td.innerText; };
-        td.onpointerdown = e => { if(td.contentEditable==="true") e.stopPropagation(); };
+        td.onpointerdown = e => { if (td.contentEditable==="false") e.preventDefault(); else e.stopPropagation(); };
         tr.appendChild(td);
       });
       tbl.appendChild(tr);
@@ -1146,16 +1222,14 @@ function renderNode(node) {
 
   el.addEventListener('pointerdown', (e) => {
     const t = e.target;
-    // Let interactive tools handle themselves
     if (t.tagName === 'BUTTON' || t.closest('.node-tools') || t.closest('.handle') || t.closest('.resize-handle') || t.closest('.color-row')) return;
     
-    // Let native edit interactions pass through smoothly without triggering drag
     const isEditing = (t.tagName === 'TEXTAREA' && !t.readOnly) || 
                       (t.tagName === 'INPUT' && t.type !== 'checkbox' && !t.readOnly) || 
                       (t.contentEditable === 'true');
     if (isEditing) return; 
 
-    if (t.type === 'checkbox') return; // let checkbox toggle naturally
+    if (t.type === 'checkbox') return;
 
     if (keysDown[' ']) {
       e.stopPropagation();
@@ -1165,13 +1239,28 @@ function renderNode(node) {
       return;
     }
     if (toolMode === 'draw') return;
-    if (e.ctrlKey || toolMode === 'connect') { e.stopPropagation(); connecting = { fromId: node.id, line: createTempLine(e) }; return; }
+    if (e.ctrlKey) { e.stopPropagation(); connecting = { fromId: node.id, line: createTempLine(e) }; return; }
     if (e.button !== 0) return;
     
     e.stopPropagation();
     if (!selectedIds.has(node.id)) select(node.id, e.shiftKey);
     dragCandidate = { event: e, nodeId: node.id, duplicate: e.altKey, startX: e.clientX, startY: e.clientY };
   });
+
+  if (header) {
+    header.addEventListener('pointerdown', (e) => {
+      if (keysDown[' ']) {
+        e.stopPropagation();
+        isPanning = true; panStartX = e.clientX - panX; panStartY = e.clientY - panY; viewport.classList.add('panning'); return;
+      }
+      if (toolMode === 'draw') return;
+      if (e.ctrlKey) { e.stopPropagation(); connecting = { fromId: node.id, line: createTempLine(e) }; return; }
+      if (e.button !== 0) return;
+      e.stopPropagation();
+      if (!selectedIds.has(node.id)) select(node.id, e.shiftKey);
+      dragCandidate = { event: e, nodeId: node.id, duplicate: e.altKey, startX: e.clientX, startY: e.clientY };
+    });
+  }
 
   el.addEventListener('dblclick', (e) => {
     e.stopPropagation();
@@ -1221,18 +1310,20 @@ function editNode(node, el) {
     if (icon) icon.style.display = 'none';
   }
   let target = null;
-  if (node.type === 'note' || node.type === 'comment') target = el.querySelector('textarea');
+  if (node.type === 'note' || node.type === 'comment' || node.type === 'rawtext') target = el.querySelector('.rich-text-editor');
   else if (node.type === 'shape') target = el.querySelector('.label');
   else if (node.type === 'checklist') target = el.querySelector('.checklist-item span');
   else if (node.type === 'table') target = el.querySelector('td');
   else if (node.type === 'source') target = el.querySelector('.src-title');
   if (!target) return;
-  if (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT') {
+  
+  if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
     target.readOnly = false; target.focus(); target.select?.();
   } else {
     target.contentEditable = 'true'; target.focus();
     const r = document.createRange(); r.selectNodeContents(target); r.collapse(false);
     const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+    if (target.classList.contains('rich-text-editor')) showTextFormatBar();
   }
 }
 
@@ -1309,6 +1400,13 @@ function deleteSelected() {
   deselectAll(); renderAll(); scheduleAutosave();
 }
 
+function deleteNode(id) {
+  pushHistory();
+  nodes = nodes.filter(n => n.id !== id);
+  connections = connections.filter(c => c.from !== id && c.to !== id);
+  deselectAll(); renderAll(); scheduleAutosave();
+}
+
 // ===================== PEN BAR =====================
 const penColorRow = document.getElementById('pen-color-row');
 function renderPenSwatches() {
@@ -1330,9 +1428,14 @@ updatePenModeUI();
 document.getElementById('pen-width').oninput = (e) => penWidth = Number(e.target.value);
 
 // ===================== SEARCH =====================
+function stripHtml(html) {
+  const tmp = document.createElement("DIV");
+  tmp.innerHTML = html;
+  return tmp.textContent || tmp.innerText || "";
+}
 function nodeSearchText(n) {
-  if (n.type === 'note') return [n.title, n.text].filter(Boolean).join(' ');
-  if (n.type === 'comment') return n.text || '';
+  if (n.type === 'note') return [n.title, stripHtml(n.html || n.text || '')].filter(Boolean).join(' ');
+  if (n.type === 'comment' || n.type === 'rawtext') return stripHtml(n.html || n.text || '');
   if (n.type === 'shape') return n.text || '';
   if (n.type === 'checklist') return (n.items||[]).map(i=>i.text).join(' ');
   if (n.type === 'table') return (n.rows||[]).flat().join(' ');
@@ -1391,14 +1494,21 @@ document.addEventListener('keydown', (e) => {
   keysDown[e.key.toLowerCase()] = true;
   const meta = e.ctrlKey || e.metaKey;
 
+  if (isTyping()) {
+    // Rich text shortcuts 
+    if (meta && e.key.toLowerCase() === 'b') { e.preventDefault(); document.execCommand('bold'); return; }
+    if (meta && e.key.toLowerCase() === 'i') { e.preventDefault(); document.execCommand('italic'); return; }
+    if (meta && e.key.toLowerCase() === 'u') { e.preventDefault(); document.execCommand('underline'); return; }
+    return; // Don't block spacebar or run canvas shortcuts when typing
+  }
+
   if (e.key === ' ') { e.preventDefault(); return; }
 
   if (e.key === 'Escape') {
     deselectAll(); document.getElementById('settings-panel').classList.remove('open');
     shortcutsPanel.classList.remove('open'); closeSearch(); setTool('select'); return;
   }
-  if (meta && e.key.toLowerCase() === 'f' && !isTyping()) { e.preventDefault(); openSearch(); return; }
-  if (isTyping()) return;
+  if (meta && e.key.toLowerCase() === 'f') { e.preventDefault(); openSearch(); return; }
 
   if (meta && e.key.toLowerCase() === 'z' && e.shiftKey) { e.preventDefault(); redo(); return; }
   if (meta && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); return; }
@@ -1422,7 +1532,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key === '?') { shortcutsPanel.classList.toggle('open'); return; }
   if (e.key.toLowerCase() === 'v') return setTool('select');
   if (e.key.toLowerCase() === 'p') return setTool('draw');
-  if (e.key.toLowerCase() === 'l') return setTool('connect');
+  if (e.key.toLowerCase() === 't') return setTool('text');
   if (e.key === '!' && e.shiftKey) return zoomToFit(); // Shift+1
   if (e.key === '@' && e.shiftKey) return zoomToSelected(); // Shift+2
 
@@ -1602,15 +1712,16 @@ function editConnectionLabel(conn, screenX, screenY) {
 }
 
 // Creators
-function createNote(pos) { const c = pos || centerWorld(); const n = { id: uid(), type: 'note', x: c.x-100, y: c.y-100, w: 200, h: 200, text: '', title: '', color: 'var(--surface)' }; nodes.push(n); renderNode(n); select(n.id); }
-function createComment(pos) { const c = pos || centerWorld(); const n = { id: uid(), type: 'comment', x: c.x, y: c.y, w: 240, h: 120, text: '', color: 'var(--highlight)', collapsed: false }; nodes.push(n); renderNode(n); select(n.id); }
+function createNote(pos) { const c = pos || centerWorld(); const n = { id: uid(), type: 'note', x: c.x-100, y: c.y-100, w: 200, h: 200, html: '', title: '', color: 'var(--surface)' }; nodes.push(n); renderNode(n); select(n.id); }
+function createComment(pos) { const c = pos || centerWorld(); const n = { id: uid(), type: 'comment', x: c.x, y: c.y, w: 240, h: 120, html: '', color: 'var(--highlight)', collapsed: false }; nodes.push(n); renderNode(n); select(n.id); }
 function createShape(shape, pos) { const c = pos || centerWorld(); const n = { id: uid(), type: 'shape', shape, x: c.x-80, y: c.y-60, w: 160, h: 120, text: '', color: 'var(--surface)' }; nodes.push(n); renderNode(n); select(n.id); }
 function createChecklist(pos) { const c = pos || centerWorld(); const n = { id: uid(), type: 'checklist', x: c.x-120, y: c.y-100, w: 240, h: 200, items: [{text:'Task', done:false}], color: 'var(--surface)' }; nodes.push(n); renderNode(n); select(n.id); }
 function createTable(pos) { const c = pos || centerWorld(); const n = { id: uid(), type: 'table', x: c.x-150, y: c.y-100, w: 300, h: 150, rows: [['H1','H2','H3'],['','',''],['','','']], color: 'var(--surface)' }; nodes.push(n); renderNode(n); select(n.id); }
 function createSource(pos) { const c = pos || centerWorld(); const n = { id: uid(), type: 'source', x: c.x-130, y: c.y-90, w: 260, h: 190, title: '', meta: '', notes: '', color: 'var(--surface)' }; nodes.push(n); renderNode(n); select(n.id); }
 function createImage(src, pos) { const c = pos || centerWorld(); const n = { id: uid(), type: 'image', x: c.x-120, y: c.y-90, w: 240, h: 180, src }; nodes.push(n); renderNode(n); select(n.id); }
+function createRawText(pos) { const c = pos || centerWorld(); const n = { id: uid(), type: 'rawtext', x: c.x-60, y: c.y-25, w: 220, h: 50, html: '', color: 'transparent' }; nodes.push(n); renderNode(n); select(n.id); return n; }
 
-[createNote, createComment, createShape, createChecklist, createTable, createSource, createImage].forEach(fn => {
+[createNote, createComment, createShape, createChecklist, createTable, createSource, createImage, createRawText].forEach(fn => {
   const orig = fn; window[fn.name] = (...args) => { pushHistory(); const r = orig(...args); scheduleAutosave(); return r; };
 });
 
