@@ -292,6 +292,30 @@ button:focus-visible, .ui-btn:focus-visible, input:focus-visible { outline:2px s
 /* Input resest */
 #file-input, #import-input { display:none; }
 
+/* ------------------------------------------------------------------------- */
+/* NEW: CUSTOM SCROLLBARS                                                      */
+/* ------------------------------------------------------------------------- */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background-color: var(--border);
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--accent);
+}
+
 </style>
 </head>
 <body data-theme="dark">
@@ -407,7 +431,6 @@ button:focus-visible, .ui-btn:focus-visible, input:focus-visible { outline:2px s
   <div class="divider"></div>
   <button class="ui-btn" id="pen-mode-pen" title="Pen">Pen</button>
   <button class="ui-btn" id="pen-mode-highlighter" title="Highlighter">Highlighter</button>
-  <!-- NEW: Eraser button -->
   <button class="ui-btn" id="pen-mode-eraser" title="Eraser">Eraser</button>
   <div class="divider"></div>
   <label>Width</label>
@@ -450,6 +473,7 @@ button:focus-visible, .ui-btn:focus-visible, input:focus-visible { outline:2px s
 
 <div class="menu" id="group-color-picker"></div>
 
+<!-- Node context menu -->
 <div class="menu context-menu" id="context-menu">
   <button data-action="edit">Edit</button>
   <button data-action="style">Modify Properties...</button>
@@ -476,6 +500,22 @@ button:focus-visible, .ui-btn:focus-visible, input:focus-visible { outline:2px s
   <button data-action="backward">Send backward</button>
   <button data-action="front">Bring to front</button>
   <button data-action="back">Send to back</button>
+</div>
+
+<!-- NEW: Canvas context menu -->
+<div class="menu context-menu" id="canvas-context-menu">
+  <button data-action="new-note">New Note</button>
+  <button data-action="new-checklist">New Checklist</button>
+  <button data-action="new-table">New Table</button>
+  <button data-action="new-source">New Source</button>
+  <div class="menu-sep"></div>
+  <button data-action="paste-canvas">Paste</button>
+  <button data-action="select-all">Select All</button>
+  <div class="menu-sep"></div>
+  <button data-action="clear-board">Clear Board</button>
+  <button data-action="export-board">Export</button>
+  <button data-action="import-board">Import</button>
+  <button data-action="open-settings">Settings</button>
 </div>
 
 <div class="menu" id="drive-panel">
@@ -563,6 +603,7 @@ button:focus-visible, .ui-btn:focus-visible, input:focus-visible { outline:2px s
       <div class="sc-row"><span>Zoom to fit</span><kbd>Shift 1</kbd></div>
       <div class="sc-row"><span>Zoom to selection</span><kbd>Shift 2</kbd></div>
       <div class="sc-row"><span>Reset zoom</span><kbd>Ctrl 0</kbd></div>
+      <div class="sc-row"><span>Auto-fit node size</span><kbd>Alt+Click node</kbd></div>
       <div class="sc-row"><span>Connect two nodes</span><kbd>Ctrl</kbd> + drag from node</div>
       <div class="sc-row"><span>Duplicate while dragging</span><kbd>Alt</kbd> + drag</div>
       <div class="sc-row"><span>Deselect / cancel</span><kbd>Esc</kbd></div>
@@ -800,9 +841,31 @@ const isTyping = () => { const a = document.activeElement; return !!(a && (a.tag
 function showTextFormatBar() { document.getElementById('text-format-bar').classList.add('open'); }
 function hideTextFormatBar() { document.getElementById('text-format-bar').classList.remove('open'); }
 
+// NEW: Canvas context menu
+function openCanvasContextMenu(e) {
+  e.preventDefault();
+  closeContextMenu();
+  const x = Math.min(e.clientX, window.innerWidth - 220);
+  const y = Math.min(e.clientY, window.innerHeight - 360);
+  const menu = document.getElementById('canvas-context-menu');
+  menu.style.left = Math.max(4, x) + 'px';
+  menu.style.top = Math.max(4, y) + 'px';
+  menu.classList.add('open');
+}
+
+// Close all context menus
+function closeContextMenu() {
+  document.getElementById('context-menu').classList.remove('open');
+  document.getElementById('canvas-context-menu').classList.remove('open');
+}
+
 viewport.addEventListener('contextmenu', (e) => {
-  if (e.target.closest('.node')) return;
-  e.preventDefault(); closeContextMenu();
+  if (e.target.closest('.node')) return; // node will handle it
+  e.preventDefault();
+  closeContextMenu();
+  if (e.target === viewport || e.target === canvas || e.target === connSvg || e.target === drawSvg) {
+    openCanvasContextMenu(e);
+  }
 });
 
 viewport.addEventListener('dblclick', (e) => {
@@ -848,10 +911,8 @@ viewport.addEventListener('pointerdown', (e) => {
     }
 
     if (toolMode === 'draw') {
-      // NEW: Eraser mode - remove whole strokes on click
       if (penMode === 'eraser') {
         const hit = drawings.findIndex(d => {
-          // Simple bounding box check
           const minX = Math.min(...d.points.map(p=>p.x));
           const maxX = Math.max(...d.points.map(p=>p.x));
           const minY = Math.min(...d.points.map(p=>p.y));
@@ -864,7 +925,7 @@ viewport.addEventListener('pointerdown', (e) => {
           renderDrawings();
           scheduleAutosave();
         }
-        return; // no continuous drawing for eraser
+        return;
       }
 
       pushHistory();
@@ -1058,10 +1119,15 @@ document.getElementById('style-text-val').oninput = (e) => applyStyleToSelected(
 document.getElementById('style-font-val').onchange = (e) => applyStyleToSelected('fontFamily', e.target.value);
 document.getElementById('style-size-val').oninput = (e) => applyStyleToSelected('fontSize', e.target.value);
 
-// NEW: Open style panel from align bar
+// NEW: Open style panel from align bar with proper positioning
 document.getElementById('style-quick-btn').onclick = () => {
   const panel = document.getElementById('style-panel');
-  panel.style.top = '110px'; // below align bar
+  // If align bar is open (multiple nodes selected), position below it
+  if (selectedIds.size >= 2) {
+    panel.style.top = '110px';
+  } else {
+    panel.style.top = '70px';
+  }
   panel.style.right = '20px';
   panel.classList.toggle('open');
 };
@@ -1174,7 +1240,7 @@ document.addEventListener('pointerdown', (e) => {
   const dp = document.getElementById('drive-panel');
   if (dp && dp.classList.contains('open') && !dp.contains(e.target) && e.target.id !== 'drive-menu-btn') dp.classList.remove('open');
   
-  if (!contextMenu.contains(e.target) && !document.getElementById('style-panel').contains(e.target)) {
+  if (!contextMenu.contains(e.target) && !document.getElementById('style-panel').contains(e.target) && !document.getElementById('canvas-context-menu').contains(e.target)) {
     closeContextMenu();
     document.getElementById('style-panel').classList.remove('open');
   }
@@ -1571,6 +1637,14 @@ function renderNode(node) {
     dragCandidate = { event: e, nodeId: node.id, duplicate: e.altKey, startX: e.clientX, startY: e.clientY };
   });
 
+  // NEW: Alt+Click to auto-fit node size
+  el.addEventListener('click', (e) => {
+    if (e.altKey) {
+      e.stopPropagation();
+      autoFitNode(node);
+    }
+  });
+
   if (header) {
     header.addEventListener('pointerdown', (e) => {
       if (keysDown[' ']) { e.stopPropagation(); isPanning = true; panStartX = e.clientX - panX; panStartY = e.clientY - panY; viewport.classList.add('panning'); return; }
@@ -1622,34 +1696,80 @@ function renderNode(node) {
   canvas.appendChild(el);
 }
 
-function editNode(node, el) {
-  if (node.type === 'comment' && node.collapsed) {
-    node.collapsed = false; el.classList.remove('comment-collapsed'); el.style.width = node.w + 'px'; el.style.height = node.h + 'px';
-    const icon = el.querySelector('svg')?.parentElement; if (icon) icon.style.display = 'none';
-  }
-  let target = null;
-  if (node.type === 'note' || node.type === 'comment' || node.type === 'rawtext') target = el.querySelector('.rich-text-editor');
-  else if (node.type === 'shape') target = el.querySelector('.label');
-  else if (node.type === 'checklist') target = el.querySelector('.checklist-item span');
-  else if (node.type === 'table') target = el.querySelector('td');
-  else if (node.type === 'source') target = el.querySelector('.src-title');
-  if (!target) return;
+// NEW: Auto-fit node to content
+function autoFitNode(node) {
+  const el = canvas.querySelector(`[data-id="${node.id}"]`);
+  if (!el) return;
+  pushHistory();
   
-  if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
-    target.readOnly = false; target.focus(); target.select?.();
-  } else {
-    target.contentEditable = 'true'; target.focus();
-    const r = document.createRange(); r.selectNodeContents(target); r.collapse(false);
-    const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
-    if (target.classList.contains('rich-text-editor')) showTextFormatBar();
+  let minW = 80, minH = 40, padding = 20;
+  
+  if (node.type === 'note' || node.type === 'comment' || node.type === 'rawtext') {
+    const ta = el.querySelector('.rich-text-editor');
+    if (ta) {
+      // Temporarily make it not overflow to measure
+      const clone = ta.cloneNode(true);
+      clone.style.position = 'absolute';
+      clone.style.visibility = 'hidden';
+      clone.style.width = 'auto';
+      clone.style.height = 'auto';
+      clone.style.maxWidth = 'none';
+      document.body.appendChild(clone);
+      const rect = clone.getBoundingClientRect();
+      node.w = Math.max(minW, Math.ceil(rect.width) + padding);
+      node.h = Math.max(minH, Math.ceil(rect.height) + padding + (node.type === 'note' ? 30 : 0)); // extra for header
+      document.body.removeChild(clone);
+    }
+  } else if (node.type === 'shape') {
+    const label = el.querySelector('.label');
+    if (label) {
+      const text = label.innerText || '';
+      const canvas2 = document.createElement('canvas');
+      const ctx = canvas2.getContext('2d');
+      ctx.font = '14px system-ui';
+      const metrics = ctx.measureText(text);
+      node.w = Math.max(minW, Math.ceil(metrics.width) + padding);
+      node.h = Math.max(minH, 40);
+    }
+  } else if (node.type === 'checklist') {
+    // Estimate based on items count and max text length
+    let maxTextLen = 0;
+    node.items.forEach(item => {
+      const len = item.text ? item.text.length : 0;
+      if (len > maxTextLen) maxTextLen = len;
+    });
+    node.w = Math.max(200, maxTextLen * 8 + 100);
+    node.h = Math.max(100, node.items.length * 35 + 50);
+  } else if (node.type === 'table') {
+    // Rows and columns
+    const cols = node.rows[0] ? node.rows[0].length : 1;
+    const rows = node.rows.length;
+    node.w = Math.max(200, cols * 100);
+    node.h = Math.max(60, rows * 30 + 30);
+  } else if (node.type === 'source') {
+    // Maybe based on notes length
+    const notesLen = node.notes ? node.notes.length : 0;
+    node.h = Math.max(150, notesLen * 2 + 100);
+    node.w = Math.max(220, node.w);
   }
+  
+  // Apply new size
+  el.style.width = node.w + 'px';
+  el.style.height = node.h + 'px';
+  // For comments collapsed? not relevant
+  drawConnections();
+  updateGroupFrames();
+  scheduleAutosave();
 }
 
 // ============================================================================== //
 //                           JS: CONTEXT MENU                                     //
 // ============================================================================== //
 const contextMenu = document.getElementById('context-menu');
-function closeContextMenu() { contextMenu.classList.remove('open'); }
+function closeContextMenu() {
+  contextMenu.classList.remove('open');
+  document.getElementById('canvas-context-menu').classList.remove('open');
+}
 function linkSelected() {
   const ids = Array.from(selectedIds);
   if (ids.length < 2) return;
@@ -1667,12 +1787,22 @@ function openContextMenu(e, nodeId) {
   document.querySelector('#context-menu button[data-action="paste"]').style.display = clipboardNodes.length ? 'block' : 'none';
   const x = Math.min(e.clientX, window.innerWidth - 215), y = Math.min(e.clientY, window.innerHeight - 440);
   contextMenu.style.left = Math.max(4, x) + 'px'; contextMenu.style.top = Math.max(4, y) + 'px'; contextMenu.classList.add('open');
+  closeCanvasContextMenu();
+}
+function closeCanvasContextMenu() {
+  document.getElementById('canvas-context-menu').classList.remove('open');
 }
 contextMenu.addEventListener('click', (e) => {
   const action = e.target.dataset.action; if (!action) return;
   closeContextMenu();
   if (action === 'edit') { const n = getSelectedNodes()[0]; if (n) editNode(n, canvas.querySelector(`[data-id="${n.id}"]`)); }
-  else if (action === 'style') { const p = document.getElementById('style-panel'); p.style.top = Math.max(70, e.clientY) + 'px'; p.style.right = Math.max(20, window.innerWidth - e.clientX) + 'px'; p.classList.add('open'); }
+  else if (action === 'style') { 
+    const p = document.getElementById('style-panel');
+    // Position below align bar if open
+    if (selectedIds.size >= 2) p.style.top = '110px'; else p.style.top = '70px';
+    p.style.right = '20px';
+    p.classList.add('open'); 
+  }
   else if (action === 'copy') copySelected();
   else if (action === 'paste') pasteNodes();
   else if (action === 'duplicate') duplicateSelected();
@@ -1689,6 +1819,25 @@ contextMenu.addEventListener('click', (e) => {
   else if (action === 'dist-h') distributeSelected('h');
   else if (action === 'dist-v') distributeSelected('v');
   else if (action === 'forward' || action === 'backward' || action === 'front' || action === 'back') reorderSelected(action);
+});
+
+// Canvas context menu actions
+const canvasContextMenu = document.getElementById('canvas-context-menu');
+canvasContextMenu.addEventListener('click', (e) => {
+  const action = e.target.dataset.action; if (!action) return;
+  closeContextMenu();
+  switch(action) {
+    case 'new-note': createNote(); break;
+    case 'new-checklist': createChecklist(); break;
+    case 'new-table': createTable(); break;
+    case 'new-source': createSource(); break;
+    case 'paste-canvas': pasteNodes(); break;
+    case 'select-all': nodes.forEach(n => selectedIds.add(n.id)); updateSelectionUI(); break;
+    case 'clear-board': if(confirm('Clear board?')){pushHistory();nodes=[];connections=[];drawings=[];deselectAll();renderAll();scheduleAutosave();} break;
+    case 'export-board': exportBoard(); break;
+    case 'import-board': document.getElementById('import-input').click(); break;
+    case 'open-settings': document.getElementById('settings-panel').classList.add('open'); break;
+  }
 });
 
 // ============================================================================== //
@@ -1832,7 +1981,6 @@ function renderPenSwatches() {
 renderPenSwatches();
 document.getElementById('pen-mode-pen').onclick = () => { penMode = 'pen'; updatePenModeUI(); };
 document.getElementById('pen-mode-highlighter').onclick = () => { penMode = 'highlighter'; updatePenModeUI(); };
-// NEW: Eraser button handler
 document.getElementById('pen-mode-eraser').onclick = () => { penMode = 'eraser'; updatePenModeUI(); };
 function updatePenModeUI() {
   document.getElementById('pen-mode-pen').classList.toggle('active-tool', penMode === 'pen');
@@ -1923,7 +2071,7 @@ document.addEventListener('keydown', (e) => {
   if (meta && (e.key === '=' || e.key === '+')) { e.preventDefault(); zoom = Math.min(5, zoom*1.2); applyCanvasTransform(); return; }
   if (meta && e.key === '-') { e.preventDefault(); zoom = Math.max(0.1, zoom/1.2); applyCanvasTransform(); return; }
 
-  // NEW: Align shortcuts with Shift + W/A/S/D/E/Q
+  // Align shortcuts with Shift + W/A/S/D/E/Q
   if (e.shiftKey && selectedIds.size >= 2) {
     const key = e.key.toLowerCase();
     if (key === 'a') { e.preventDefault(); alignSelected('left'); return; }
@@ -1939,7 +2087,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key.toLowerCase() === 'v') return setTool('select');
   if (e.key.toLowerCase() === 'p') return setTool('draw');
   if (e.key.toLowerCase() === 't') return setTool('text');
-  if (e.key.toLowerCase() === 'e' && !e.shiftKey) { setTool('draw'); penMode = 'eraser'; updatePenModeUI(); return; } // NEW: E for eraser
+  if (e.key.toLowerCase() === 'e' && !e.shiftKey) { setTool('draw'); penMode = 'eraser'; updatePenModeUI(); return; }
   if (e.key === '!' && e.shiftKey) return zoomToFit(); 
   if (e.key === '@' && e.shiftKey) return zoomToSelected(); 
 
