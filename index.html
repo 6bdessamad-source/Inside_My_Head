@@ -12,12 +12,12 @@
 /* ------------------------------------------------------------------------- */
 /* CSS: VARIABLES & THEME                                                    */
 /* ------------------------------------------------------------------------- */
-:root, [data-theme="dark"] {
+body, body[data-theme="dark"] {
   --bg:#121212; --surface:#1e1e1e; --border:#333; --accent:#d4af37; --text:#e0e0e0;
   --dot:rgba(255,255,255,.16); --danger:#e57373; --panel:rgba(30,30,30,.9); --highlight:#ffe066;
   --sel-box:rgba(212,175,55,0.15); --sel-border:rgba(212,175,55,0.8);
 }
-[data-theme="light"] {
+body[data-theme="light"] {
   --bg:#eef0f3; --surface:#ffffff; --border:#d7d9dd; --accent:#b8860b; --text:#1c1c1c;
   --dot:rgba(0,0,0,.16); --danger:#d32f2f; --panel:rgba(255,255,255,.92); --highlight:#fff3bf;
   --sel-box:rgba(184,134,11,0.15); --sel-border:rgba(184,134,11,0.8);
@@ -79,6 +79,16 @@ button:active { transform:scale(.95); }
 .menu-sep { height:1px; background:var(--border); margin:3px 0; }
 
 /* ------------------------------------------------------------------------- */
+/* CSS: PROPERTY MODIFICATION PANEL (MULTI-SELECT STYLE)                     */
+/* ------------------------------------------------------------------------- */
+#style-panel { position:fixed; top:70px; right:20px; z-index:999; display:none; flex-direction:column; background:var(--panel); backdrop-filter:blur(12px); padding:12px; border-radius:10px; border:1px solid var(--border); box-shadow:0 8px 24px rgba(0,0,0,.4); gap:8px; width:220px; }
+#style-panel.open { display:flex; }
+#style-panel label { font-size:11px; opacity:.7; width:45px; display:inline-block; }
+#style-panel .opt-row { display:flex; align-items:center; gap:6px; }
+#style-panel input[type="color"] { width:28px; height:28px; padding:0; border:1px solid var(--border); border-radius:4px; background:none; cursor:pointer; }
+#style-panel select, #style-panel input[type="number"] { background:var(--bg); border:1px solid var(--border); color:var(--text); border-radius:4px; padding:4px 6px; font-size:12px; outline:none; flex:1; }
+
+/* ------------------------------------------------------------------------- */
 /* CSS: DRIVE INTEGRATION & SETTINGS PANEL                                   */
 /* ------------------------------------------------------------------------- */
 #drive-panel { position:fixed; bottom:70px; left:50%; transform:translateX(calc(-50% - 200px)); z-index:1001; min-width:220px; max-width:260px; }
@@ -93,8 +103,6 @@ button:active { transform:scale(.95); }
 .opt-row button { flex:1; padding:6px; font-size:12px; }
 .opt-row button.active { border-color:var(--accent); color:var(--accent); background:rgba(212,175,55,.1); }
 .switch-row { display:flex; align-items:center; justify-content:space-between; }
-
-/* Custom Background Color Picker */
 #custom-bg-color { border:1px solid var(--border); padding:0; width:28px; height:28px; border-radius:6px; cursor:pointer; background:none; outline:none; flex-shrink:0; }
 #custom-bg-color::-webkit-color-swatch-wrapper { padding: 2px; }
 #custom-bg-color::-webkit-color-swatch { border: none; border-radius: 4px; }
@@ -103,7 +111,7 @@ button:active { transform:scale(.95); }
 /* CSS: NODES & INTERACTION (BASE)                                           */
 /* ------------------------------------------------------------------------- */
 .node { position:absolute; top:0; left:0; background:var(--surface); border:1px solid var(--border);
-  border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,.35); display:flex; flex-direction:column; cursor:grab; user-select:none; transition: box-shadow .15s ease, outline-color .15s ease; }
+  border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,.35); display:flex; flex-direction:column; cursor:grab; user-select:none; transition: box-shadow .15s ease, outline-color .15s ease; color:var(--text); font-family:inherit; font-size:14px; }
 .node:active { cursor:grabbing; }
 .node.selected { outline:2px solid var(--accent); outline-offset:2px; }
 .node.highlighted { box-shadow:0 0 0 3px var(--highlight), 0 4px 16px rgba(0,0,0,.35); }
@@ -112,8 +120,7 @@ button:active { transform:scale(.95); }
 .node-body { flex:1; padding:10px; position:relative; overflow:auto; display:flex; flex-direction:column; }
 .node-body * { user-select:none; }
 
-.node-title { flex:1; font-size:11.5px; font-weight:600; padding:0 8px; white-space:nowrap;
-  overflow:hidden; text-overflow:ellipsis; outline:none; opacity:.85; cursor:text; }
+.node-title { flex:1; font-weight:600; padding:0 8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; outline:none; opacity:.85; cursor:text; font-size:inherit; font-family:inherit; color:inherit; }
 .node-title[contenteditable="false"] { cursor:grab; }
 .node-title:empty:before { content: attr(data-placeholder); opacity:.4; font-weight:500; }
 .node-title[contenteditable="true"] { white-space:normal; overflow:visible; opacity:1; background:var(--bg); border-radius:4px; user-select:text; }
@@ -143,16 +150,18 @@ button:active { transform:scale(.95); }
 .node.rawtext { border:1px dashed transparent; box-shadow:none; }
 .node.rawtext:hover { border:1px dashed var(--border); }
 .node.rawtext.selected { outline:2px solid var(--accent); outline-offset:2px; border-color:transparent; }
-.node .rich-text-editor { width:100%; height:100%; background:transparent; border:none; color:var(--text);
-  outline:none; font-family:inherit; font-size:14px; line-height:1.5; word-break:break-word; cursor:text; overflow:auto; }
+.node .rich-text-editor { width:100%; height:100%; background:transparent; border:none; color:inherit; font-family:inherit; font-size:inherit;
+  outline:none; line-height:1.5; word-break:break-word; cursor:text; overflow:auto; }
 .node .rich-text-editor[contenteditable="false"] { cursor:grab; user-select:none; }
 .node .rich-text-editor[contenteditable="false"]:active { cursor:grabbing; }
 .node .rich-text-editor:empty:before { content:attr(data-placeholder); opacity:.5; pointer-events:none; }
 
-/* Enable selection when actively editing */
+/* Enable selection when actively editing & Inheritance */
 .node .rich-text-editor[contenteditable="true"], 
 .node .label[contenteditable="true"], .node td[contenteditable="true"],
 .node span[contenteditable="true"], .node input, .node textarea { user-select:text; }
+
+.node .label, .node .checklist-item span, .node td { color:inherit; font-family:inherit; font-size:inherit; }
 
 /* Comment Collapsed State */
 .node.comment-collapsed { width:32px !important; height:32px !important; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; background:var(--accent); color:#000; overflow:hidden; }
@@ -160,7 +169,7 @@ button:active { transform:scale(.95); }
 .node.comment-collapsed .node-body { display:none; }
 
 /* Shapes & Images */
-.node .label { width:100%; height:100%; outline:none; display:flex; align-items:center; justify-content:center; text-align:center; font-size:14px; overflow:auto; word-break:break-word; cursor:text; }
+.node .label { width:100%; height:100%; outline:none; display:flex; align-items:center; justify-content:center; text-align:center; overflow:auto; word-break:break-word; cursor:text; }
 .node .label[contenteditable="false"] { cursor:grab; }
 .node .label[contenteditable="false"]:active { cursor:grabbing; }
 .node img { width:100%; height:100%; display:block; pointer-events:none; }
@@ -173,7 +182,7 @@ button:active { transform:scale(.95); }
 .chk-drag-handle:hover { opacity:0.8; }
 .chk-drag-handle:active { cursor:grabbing; }
 .checklist-item input[type="checkbox"] { cursor:pointer; accent-color:var(--accent); flex-shrink:0; }
-.checklist-item span { flex:1; outline:none; font-size:14px; cursor:text; }
+.checklist-item span { flex:1; outline:none; cursor:text; }
 .checklist-item span[contenteditable="false"] { cursor:grab; }
 .checklist-item span[contenteditable="true"] { border-bottom:1px solid var(--accent); }
 .chk-actions { display:flex; gap:4px; opacity:0; transition:opacity 0.2s; margin-left:auto; }
@@ -185,18 +194,18 @@ button:active { transform:scale(.95); }
 
 /* Tables */
 .node table { width:100%; height:100%; border-collapse:collapse; table-layout:fixed; }
-.node td { border:1px solid var(--border); padding:4px; outline:none; text-align:center; font-size:13px; overflow:hidden; cursor:text; }
+.node td { border:1px solid var(--border); padding:4px; outline:none; text-align:center; overflow:hidden; cursor:text; }
 .node td[contenteditable="false"] { cursor:grab; }
 
 /* Source Card */
 .node.source { display:flex; flex-direction:column; }
 .node.source .src-body { flex:1; display:flex; flex-direction:column; gap:5px; padding:9px 10px; overflow:auto; }
 .node.source input.src-field { background:transparent; border:none; border-bottom:1px solid var(--border);
-  color:var(--text); font-size:12.5px; outline:none; padding:2px 0; font-family:inherit; }
+  color:inherit; font-size:inherit; font-family:inherit; outline:none; padding:2px 0; }
 .node.source input.src-field:focus { border-color:var(--accent); }
-.node.source input.src-title { font-weight:600; font-size:13.5px; }
-.node.source textarea.src-notes { flex:1; background:transparent; border:none; color:var(--text); resize:none;
-  outline:none; font-family:inherit; font-size:12px; line-height:1.4; margin-top:2px; }
+.node.source input.src-title { font-weight:600; }
+.node.source textarea.src-notes { flex:1; background:transparent; border:none; color:inherit; font-family:inherit; font-size:inherit; resize:none;
+  outline:none; line-height:1.4; margin-top:2px; }
 .node.source .src-tag { position:absolute; top:-8px; left:10px; font-size:9px; letter-spacing:.06em; text-transform:uppercase;
   background:var(--accent); color:#000; padding:1px 7px; border-radius:5px; font-weight:700; }
 
@@ -209,6 +218,8 @@ button:active { transform:scale(.95); }
   padding:5px 8px; border-radius:10px; border:1px solid var(--border); box-shadow:0 8px 24px rgba(0,0,0,.4); }
 #text-format-bar.open { display:flex; }
 #text-format-bar button { padding:6px; font-size:14px; width:30px; text-align:center; display:flex; justify-content:center; align-items:center; }
+#text-format-bar select.tf-sel { background:var(--bg); border:1px solid var(--border); color:var(--text); border-radius:4px; padding:4px; font-size:12px; outline:none; max-width:80px; }
+#text-format-bar input[type="color"].tf-color { width:26px; height:26px; padding:0; border:1px solid var(--border); border-radius:4px; background:none; cursor:pointer; }
 
 /* Align / Distribute Bar */
 #align-bar { position:fixed; top:70px; left:50%; transform:translateX(-50%); z-index:999;
@@ -282,7 +293,7 @@ button:focus-visible, .ui-btn:focus-visible, input:focus-visible { outline:2px s
 
 </style>
 </head>
-<body>
+<body data-theme="dark">
 
 <!-- ======================================================================= -->
 <!--                             HTML SECTION                                -->
@@ -325,6 +336,26 @@ button:focus-visible, .ui-btn:focus-visible, input:focus-visible { outline:2px s
   <button class="icon-btn" title="Bold (Ctrl+B)" onpointerdown="event.preventDefault(); document.execCommand('bold');"><b>B</b></button>
   <button class="icon-btn" title="Italic (Ctrl+I)" onpointerdown="event.preventDefault(); document.execCommand('italic');" style="font-style:italic; font-family:serif;">I</button>
   <button class="icon-btn" title="Underline (Ctrl+U)" onpointerdown="event.preventDefault(); document.execCommand('underline');" style="text-decoration:underline;">U</button>
+  <div class="divider"></div>
+  <select class="tf-sel" onchange="document.execCommand('fontName', false, this.value); this.selectedIndex=0;" title="Font Family">
+    <option value="" disabled selected>Font</option>
+    <option value="Arial">Arial</option>
+    <option value="Times New Roman">Times</option>
+    <option value="Courier New">Courier</option>
+    <option value="Georgia">Georgia</option>
+    <option value="Verdana">Verdana</option>
+  </select>
+  <select class="tf-sel" onchange="document.execCommand('fontSize', false, this.value); this.selectedIndex=0;" title="Font Size">
+    <option value="" disabled selected>Size</option>
+    <option value="1">Tiny</option>
+    <option value="2">Small</option>
+    <option value="3">Normal</option>
+    <option value="4">Medium</option>
+    <option value="5">Large</option>
+    <option value="6">Huge</option>
+    <option value="7">Giant</option>
+  </select>
+  <input type="color" class="tf-color" oninput="document.execCommand('foreColor', false, this.value);" title="Text Color">
   <div class="divider"></div>
   <button class="icon-btn" title="Align Left" onpointerdown="event.preventDefault(); document.execCommand('justifyLeft');"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M4 6h16M4 12h10M4 18h16"/></svg></button>
   <button class="icon-btn" title="Align Center" onpointerdown="event.preventDefault(); document.execCommand('justifyCenter');"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M4 6h16M7 12h10M4 18h16"/></svg></button>
@@ -378,6 +409,31 @@ button:focus-visible, .ui-btn:focus-visible, input:focus-visible { outline:2px s
 </div>
 
 <!-- ----------------------------------------------------------------------- -->
+<!-- HTML: MULTI-SELECT NODE MODIFICATION PANEL                              -->
+<!-- ----------------------------------------------------------------------- -->
+<div id="style-panel">
+  <div style="font-size:11px; opacity:.7; margin-bottom:2px; display:flex; justify-content:space-between;">
+    <span>Modify Selected Properties</span>
+    <button style="padding:0; border:none; background:none; cursor:pointer;" onclick="document.getElementById('style-panel').classList.remove('open')">X</button>
+  </div>
+  <div class="opt-row">
+    <label>Bg</label><input type="color" id="style-bg-val" value="#1e1e1e">
+    <label>Text</label><input type="color" id="style-text-val" value="#e0e0e0">
+  </div>
+  <div class="opt-row" style="margin-top:2px;">
+    <select id="style-font-val">
+      <option value="">Default Font</option>
+      <option value="Arial, sans-serif">Arial</option>
+      <option value="'Times New Roman', serif">Times</option>
+      <option value="'Courier New', monospace">Courier</option>
+      <option value="Georgia, serif">Georgia</option>
+      <option value="Verdana, sans-serif">Verdana</option>
+    </select>
+    <input type="number" id="style-size-val" placeholder="14px" title="Font Size (px)" style="width:60px;" min="8" max="120">
+  </div>
+</div>
+
+<!-- ----------------------------------------------------------------------- -->
 <!-- HTML: BOTTOM UI BAR & MENUS                                             -->
 <!-- ----------------------------------------------------------------------- -->
 <div class="menu" id="shape-menu">
@@ -390,6 +446,8 @@ button:focus-visible, .ui-btn:focus-visible, input:focus-visible { outline:2px s
 
 <div class="menu context-menu" id="context-menu">
   <button data-action="edit">Edit</button>
+  <button data-action="style">Modify Properties...</button>
+  <div class="menu-sep"></div>
   <button data-action="duplicate">Duplicate</button>
   <button data-action="delete">Delete</button>
   <div class="menu-sep"></div>
@@ -410,8 +468,6 @@ button:focus-visible, .ui-btn:focus-visible, input:focus-visible { outline:2px s
   <button data-action="backward">Send backward</button>
   <button data-action="front">Bring to front</button>
   <button data-action="back">Send to back</button>
-  <div class="menu-sep"></div>
-  <button data-action="color">Change color</button>
 </div>
 
 <div class="menu" id="drive-panel">
@@ -930,6 +986,34 @@ document.getElementById('zoom-fit-btn').onclick = zoomToFit;
 document.getElementById('zoom-sel-btn').onclick = zoomToSelected;
 
 // ============================================================================== //
+//                           JS: MULTI-SELECT STYLE MODIFICATION                  //
+// ============================================================================== //
+function applyStyleToSelected(prop, val) {
+  pushHistory();
+  selectedIds.forEach(id => {
+    const n = nodes.find(x => x.id === id); if(!n) return;
+    if(prop === 'bgColor') n.color = val; else n[prop] = val;
+    
+    const el = canvas.querySelector(`[data-id="${id}"]`);
+    if(el) {
+      if(prop === 'bgColor' && n.type !== 'image' && n.type !== 'rawtext') el.style.background = val;
+      if(prop === 'textColor') el.style.color = val;
+      if(prop === 'fontFamily') el.style.fontFamily = val;
+      if(prop === 'fontSize') {
+        n.fontSize = val;
+        el.style.fontSize = val ? val + 'px' : '';
+      }
+    }
+  });
+  scheduleAutosave();
+}
+
+document.getElementById('style-bg-val').oninput = (e) => applyStyleToSelected('bgColor', e.target.value);
+document.getElementById('style-text-val').oninput = (e) => applyStyleToSelected('textColor', e.target.value);
+document.getElementById('style-font-val').onchange = (e) => applyStyleToSelected('fontFamily', e.target.value);
+document.getElementById('style-size-val').oninput = (e) => applyStyleToSelected('fontSize', e.target.value);
+
+// ============================================================================== //
 //                           JS: SELECTION & ALIGNMENT LOGIC                      //
 // ============================================================================== //
 function select(id, shiftKey = false) {
@@ -1035,6 +1119,11 @@ document.addEventListener('pointerdown', (e) => {
   if (gp.classList.contains('open') && !gp.contains(e.target) && !e.target.classList.contains('group-color-btn')) gp.classList.remove('open');
   const dp = document.getElementById('drive-panel');
   if (dp && dp.classList.contains('open') && !dp.contains(e.target) && e.target.id !== 'drive-menu-btn') dp.classList.remove('open');
+  
+  if (!contextMenu.contains(e.target) && !document.getElementById('style-panel').contains(e.target)) {
+    closeContextMenu();
+    document.getElementById('style-panel').classList.remove('open');
+  }
 });
 function startGroupDrag(e, members) {
   if (keysDown[' ']) {
@@ -1172,7 +1261,15 @@ function renderNode(node) {
   el.dataset.id = node.id;
   el.style.width = node.w + 'px'; el.style.height = node.h + 'px';
   el.style.transform = `translate(${node.x}px, ${node.y}px)`;
-  if (node.type !== 'image' && node.type !== 'rawtext') el.style.background = node.color || 'var(--surface)';
+  
+  // Apply specific styles
+  if (node.textColor) el.style.color = node.textColor;
+  if (node.fontFamily) el.style.fontFamily = node.fontFamily;
+  if (node.fontSize) el.style.fontSize = node.fontSize + 'px';
+  
+  if (node.type !== 'image' && node.type !== 'rawtext') {
+    el.style.background = node.color || 'var(--surface)';
+  }
 
   let header;
   if (node.type !== 'rawtext' && node.shape !== 'diamond') {
@@ -1444,6 +1541,7 @@ contextMenu.addEventListener('click', (e) => {
   const action = e.target.dataset.action; if (!action) return;
   closeContextMenu();
   if (action === 'edit') { const n = getSelectedNodes()[0]; if (n) editNode(n, canvas.querySelector(`[data-id="${n.id}"]`)); }
+  else if (action === 'style') { const p = document.getElementById('style-panel'); p.style.top = Math.max(70, e.clientY) + 'px'; p.style.right = Math.max(20, window.innerWidth - e.clientX) + 'px'; p.classList.add('open'); }
   else if (action === 'duplicate') duplicateSelected();
   else if (action === 'delete') deleteSelected();
   else if (action === 'group') groupSelected();
@@ -1458,10 +1556,7 @@ contextMenu.addEventListener('click', (e) => {
   else if (action === 'dist-h') distributeSelected('h');
   else if (action === 'dist-v') distributeSelected('v');
   else if (action === 'forward' || action === 'backward' || action === 'front' || action === 'back') reorderSelected(action);
-  else if (action === 'color') colorizeSelected(PALETTE[1]);
 });
-
-document.addEventListener('pointerdown', (e) => { if (!contextMenu.contains(e.target)) closeContextMenu(); });
 
 // ============================================================================== //
 //                           JS: CONNECTIONS LOGIC                                //
@@ -1742,10 +1837,10 @@ shapeMenu.querySelectorAll('button').forEach(b => b.onclick = () => { createShap
 //                           JS: UI SETTINGS & INITIALIZATION                     //
 // ============================================================================== //
 document.getElementById('settings-btn').onclick = () => document.getElementById('settings-panel').classList.toggle('open');
-document.getElementById('theme-row').onclick = (e) => { if (e.target.dataset.v) { theme = e.target.dataset.v; applyTheme(); } };
-document.getElementById('bg-row').onclick = (e) => { if (e.target.dataset.v) { bgStyle = e.target.dataset.v; updateBackground(); } };
-document.getElementById('line-row').onclick = (e) => { if (e.target.dataset.v) { lineStyle = e.target.dataset.v; updateBackground(); drawConnections(); } };
-document.getElementById('snap-toggle').onchange = (e) => snapEnabled = e.target.checked;
+document.getElementById('theme-row').onclick = (e) => { if (e.target.dataset.v) { theme = e.target.dataset.v; applyTheme(); scheduleAutosave(); } };
+document.getElementById('bg-row').onclick = (e) => { if (e.target.dataset.v) { bgStyle = e.target.dataset.v; updateBackground(); scheduleAutosave(); } };
+document.getElementById('line-row').onclick = (e) => { if (e.target.dataset.v) { lineStyle = e.target.dataset.v; updateBackground(); drawConnections(); scheduleAutosave(); } };
+document.getElementById('snap-toggle').onchange = (e) => { snapEnabled = e.target.checked; scheduleAutosave(); };
 document.getElementById('custom-bg-color').addEventListener('input', (e) => {
   customBgColor = e.target.value;
   document.body.style.setProperty('--bg', customBgColor);
