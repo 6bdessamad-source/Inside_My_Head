@@ -392,11 +392,10 @@ input[type="range"] { accent-color:var(--accent); width:70px; }
   </div>
 </div>
 
-<input type="file" id="file-input" accept="image/*">
-
 <div id="ui-bar">
   <button id="auth-btn">Drive Sync</button>
   <button id="save-btn" style="display:none;">Sync</button>
+  <button id="workspace-btn" style="display:none;">Workspace ▾</button>
   <div class="divider"></div>
   <button class="icon-btn" id="note-btn" title="Note (N)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></button>
   <button class="icon-btn" id="shape-btn" title="Shape"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="10" width="9" height="9" rx="1.5"/><circle cx="16.5" cy="7.5" r="4.5"/></svg></button>
@@ -423,6 +422,12 @@ input[type="range"] { accent-color:var(--accent); width:70px; }
     <button class="icon-btn" id="zoom-sel-btn" title="Zoom to Selected (Shift+2)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/></svg></button>
   </div>
 </div>
+
+<div class="menu" id="workspace-menu" style="bottom: 70px; left: 20px; min-width: 180px;">
+  <div id="workspace-list" style="max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px;"></div>
+  <div class="menu-sep"></div>
+  <button id="add-workspace-btn" style="color:var(--accent);">+ New Workspace</button>
+</div>
 <input type="file" id="import-input" accept="application/json">
 
 <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoad()"></script>
@@ -430,11 +435,6 @@ input[type="range"] { accent-color:var(--accent); width:70px; }
 
 <script>
 // ===================== STATE =====================
-const CLIENT_ID = '500297009261-i1aa5fekjptp3i1kgpst248knc18gvt6.apps.googleusercontent.com';
-const SCOPES = 'https://www.googleapis.com/auth/drive.file';
-const FILE_NAME = 'my_personal_board.json';
-let tokenClient, fileId = null;
-
 let nodes = [], connections = [], drawings = [];
 let groups = {}; // gid -> { title, color }
 let selectedConnId = null;
@@ -490,21 +490,23 @@ function redo() {
 
 // ===================== AUTOSAVE (local backup) =====================
 let autosaveTimer = null;
+function getSaveKey() { return 'ibp_autosave_' + (fileId || 'local'); }
+
 function scheduleAutosave() {
   clearTimeout(autosaveTimer);
   autosaveTimer = setTimeout(() => {
     try {
-      localStorage.setItem('infiniteBoardPro_autosave', JSON.stringify({
+      localStorage.setItem(getSaveKey(), JSON.stringify({
         nodes, connections, drawings, groups, theme, bgStyle, lineStyle, snapEnabled, panX, panY, zoom
       }));
-    } catch(err) { /* storage unavailable, ignore */ }
+    } catch(err) { }
   }, 800);
 }
 function tryLoadAutosave() {
   try {
-    const raw = localStorage.getItem('infiniteBoardPro_autosave');
+    const raw = localStorage.getItem(getSaveKey());
     if (raw) { loadBoardData(JSON.parse(raw)); return true; }
-  } catch(err) { /* ignore */ }
+  } catch(err) { }
   return false;
 }
 function exportBoard() {
@@ -1619,20 +1621,128 @@ function loadBoardData(data) {
   document.getElementById('snap-toggle').checked = snapEnabled; applyTheme(); applyCanvasTransform(); renderAll();
 }
 
+const CLIENT_ID = '500297009261-i1aa5fekjptp3i1kgpst248knc18gvt6.apps.googleusercontent.com';
+const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+let tokenClient, fileId = null;
+let currentWorkspaceName = 'IBP_Workspace_Default.json';
+
 function gapiLoad() { gapi.load('client', async () => await gapi.client.init({ discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"] })); }
-function gisLoad() { tokenClient = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: SCOPES, callback: (res) => { if (res.error) return; document.getElementById('auth-btn').style.display = 'none'; document.getElementById('save-btn').style.display = 'inline-block'; loadBoard(); } }); }
+
+function gisLoad() { 
+  tokenClient = google.accounts.oauth2.initTokenClient({ 
+    client_id: CLIENT_ID, 
+    scope: SCOPES, 
+    callback: (res) => { 
+      if (res.error) return; 
+      document.getElementById('auth-btn').style.display = 'none'; 
+      document.getElementById('save-btn').style.display = 'inline-block'; 
+      document.getElementById('workspace-btn').style.display = 'inline-block'; 
+      loadWorkspaces(); 
+    } 
+  }); 
+}
+
 document.getElementById('auth-btn').onclick = () => tokenClient.requestAccessToken({ prompt: 'consent' });
 
-async function loadBoard() {
-  const res = await gapi.client.drive.files.list({ q: `name='${FILE_NAME}' and trashed=false`, spaces: 'drive' });
-  if (res.result.files?.length > 0) { fileId = res.result.files[0].id; const fData = await gapi.client.drive.files.get({ fileId, alt: 'media' }); loadBoardData(typeof fData.result === 'string' ? JSON.parse(fData.result) : fData.result); }
+async function loadWorkspaces() {
+  const res = await gapi.client.drive.files.list({ 
+    q: `name contains 'IBP_Workspace_' and trashed=false`, 
+    spaces: 'drive', 
+    fields: 'files(id, name, modifiedTime)' 
+  });
+  const files = res.result.files || [];
+  const listEl = document.getElementById('workspace-list');
+  listEl.innerHTML = '';
+  
+  if (files.length === 0) {
+    await saveCurrentWorkspace('IBP_Workspace_Default.json');
+    return loadWorkspaces();
+  }
+
+  files.forEach(f => {
+    const btn = document.createElement('button');
+    btn.textContent = f.name.replace('IBP_Workspace_', '').replace('.json', '');
+    if (f.id === fileId) {
+      btn.style.borderColor = 'var(--accent)';
+      btn.style.color = 'var(--accent)';
+    }
+    btn.onclick = () => { 
+      document.getElementById('workspace-menu').classList.remove('open'); 
+      loadWorkspaceData(f.id, f.name); 
+    };
+    listEl.appendChild(btn);
+  });
+
+  if (!fileId && files.length > 0) loadWorkspaceData(files[0].id, files[0].name);
 }
-document.getElementById('save-btn').onclick = async () => {
-  const btn = document.getElementById('save-btn'); btn.innerText = 'Syncing...';
-  const boundary = 'foo_bar_baz', metadata = { name: FILE_NAME, mimeType: 'application/json' };
-  const body = "\r\n--" + boundary + "\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n" + JSON.stringify(metadata) + "\r\n--" + boundary + "\r\nContent-Type: application/json\r\n\r\n" + JSON.stringify({nodes, connections, drawings, groups, theme, bgStyle, lineStyle, snapEnabled, panX, panY, zoom}) + "\r\n--" + boundary + "--";
-  await gapi.client.request({ path: fileId ? `/upload/drive/v3/files/${fileId}` : '/upload/drive/v3/files', method: fileId ? 'PATCH' : 'POST', params: { uploadType: 'multipart' }, headers: { 'Content-Type': 'multipart/related; boundary=' + boundary }, body });
-  btn.innerText = 'Synced'; setTimeout(() => btn.innerText = 'Sync', 1500);
+
+async function loadWorkspaceData(id, name) {
+  fileId = id; 
+  currentWorkspaceName = name;
+  document.getElementById('workspace-btn').innerText = name.replace('IBP_Workspace_', '').replace('.json', '') + ' ▾';
+  
+  const fData = await gapi.client.drive.files.get({ fileId, alt: 'media' });
+  loadBoardData(typeof fData.result === 'string' ? JSON.parse(fData.result) : fData.result);
+  tryLoadAutosave(); 
+}
+
+async function saveCurrentWorkspace(nameOverride) {
+  const btn = document.getElementById('save-btn'); 
+  btn.innerText = 'Syncing...';
+  
+  const targetName = nameOverride || currentWorkspaceName;
+  const boundary = 'foo_bar_baz';
+  const metadata = { name: targetName, mimeType: 'application/json' };
+  
+  const body = "\r\n--" + boundary + "\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n" + 
+    JSON.stringify(metadata) + "\r\n--" + boundary + "\r\nContent-Type: application/json\r\n\r\n" + 
+    JSON.stringify({nodes, connections, drawings, groups, theme, bgStyle, lineStyle, snapEnabled, panX, panY, zoom}) + 
+    "\r\n--" + boundary + "--";
+  
+  const req = await gapi.client.request({ 
+    path: (fileId && !nameOverride) ? `/upload/drive/v3/files/${fileId}` : '/upload/drive/v3/files', 
+    method: (fileId && !nameOverride) ? 'PATCH' : 'POST', 
+    params: { uploadType: 'multipart' }, 
+    headers: { 'Content-Type': 'multipart/related; boundary=' + boundary }, 
+    body 
+  });
+  
+  if (nameOverride) fileId = req.result.id;
+  btn.innerText = 'Synced'; 
+  setTimeout(() => btn.innerText = 'Sync', 1500);
+  
+  return req.result;
+}
+
+document.getElementById('save-btn').onclick = () => saveCurrentWorkspace();
+document.getElementById('workspace-btn').onclick = () => document.getElementById('workspace-menu').classList.toggle('open');
+document.addEventListener('pointerdown', (e) => {
+  const menu = document.getElementById('workspace-menu');
+  const btn = document.getElementById('workspace-btn');
+  if (menu.classList.contains('open') && !menu.contains(e.target) && e.target !== btn) {
+    menu.classList.remove('open');
+  }
+});
+
+document.getElementById('add-workspace-btn').onclick = async () => {
+  const name = prompt('Enter a name for the new workspace:');
+  if (!name) return;
+  
+  document.getElementById('workspace-menu').classList.remove('open');
+  
+  nodes = []; connections = []; drawings = []; groups = {}; 
+  panX = window.innerWidth/2 - 500; panY = window.innerHeight/2 - 300; zoom = 1;
+  fileId = null; 
+  undoStack = []; redoStack = [];
+  
+  currentWorkspaceName = `IBP_Workspace_${name}.json`;
+  document.getElementById('workspace-btn').innerText = name + ' ▾';
+  
+  applyCanvasTransform();
+  renderAll();
+  
+  await saveCurrentWorkspace();
+  loadWorkspaces();
 };
 
 applyTheme(); applyCanvasTransform();
