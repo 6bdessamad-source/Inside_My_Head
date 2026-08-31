@@ -80,12 +80,12 @@ button:active { transform:scale(.95); }
 
 /* Nodes */
 .node { position:absolute; top:0; left:0; background:var(--surface); border:1px solid var(--border);
-  border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,.35); display:flex; flex-direction:column; }
+  border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,.35); display:flex; flex-direction:column; cursor:grab; }
+.node:active { cursor:grabbing; }
 .node.selected { outline:2px solid var(--accent); outline-offset:2px; }
 .node.highlighted { box-shadow:0 0 0 3px var(--highlight), 0 4px 16px rgba(0,0,0,.35); }
 .node-header { height:20px; background:rgba(128,128,128,.08); border-bottom:1px solid var(--border);
-  border-radius:8px 8px 0 0; cursor:grab; flex-shrink:0; }
-.node-header:active { cursor:grabbing; }
+  border-radius:8px 8px 0 0; flex-shrink:0; }
 .node-body { flex:1; padding:10px; position:relative; overflow:auto; display:flex; flex-direction:column; }
 
 /* Comments */
@@ -95,19 +95,24 @@ button:active { transform:scale(.95); }
 
 .node textarea { width:100%; height:100%; background:transparent; border:none; color:var(--text);
   resize:none; outline:none; font-family:inherit; font-size:14px; line-height:1.4; cursor:text; }
-.node textarea[readonly] { cursor:default; user-select:none; }
+.node textarea[readonly] { cursor:grab; user-select:none; }
+.node textarea[readonly]:active { cursor:grabbing; }
 
-.node .label { width:100%; height:100%; outline:none; display:flex; align-items:center; justify-content:center; text-align:center; font-size:14px; overflow:auto; word-break:break-word; }
+.node .label { width:100%; height:100%; outline:none; display:flex; align-items:center; justify-content:center; text-align:center; font-size:14px; overflow:auto; word-break:break-word; cursor:text; }
+.node .label[contenteditable="false"] { cursor:grab; }
+.node .label[contenteditable="false"]:active { cursor:grabbing; }
 .node img { width:100%; height:100%; display:block; pointer-events:none; }
 
 /* Lists & Tables */
 .checklist-item { display:flex; align-items:center; gap:8px; margin-bottom:4px; }
 .checklist-item input[type="checkbox"] { cursor:pointer; accent-color:var(--accent); }
-.checklist-item span { flex:1; outline:none; font-size:14px; }
+.checklist-item span { flex:1; outline:none; font-size:14px; cursor:text; }
+.checklist-item span[contenteditable="false"] { cursor:grab; }
 .checklist-item span[contenteditable="true"] { border-bottom:1px solid var(--accent); }
 .add-chk-btn { background:none; border:none; color:var(--accent); text-align:left; padding:4px 0; font-size:12px; cursor:pointer; margin-top:auto;}
 .node table { width:100%; height:100%; border-collapse:collapse; table-layout:fixed; }
-.node td { border:1px solid var(--border); padding:4px; outline:none; text-align:center; font-size:13px; overflow:hidden; }
+.node td { border:1px solid var(--border); padding:4px; outline:none; text-align:center; font-size:13px; overflow:hidden; cursor:text; }
+.node td[contenteditable="false"] { cursor:grab; }
 
 /* UI Handles */
 .node-tools { position:absolute; top:-14px; right:2px; display:none; gap:4px; z-index:5; }
@@ -132,9 +137,10 @@ button:active { transform:scale(.95); }
 /* Node title (note nodes) */
 .node-header { display:flex; align-items:center; }
 .node-title { flex:1; font-size:11.5px; font-weight:600; padding:0 8px; white-space:nowrap;
-  overflow:hidden; text-overflow:ellipsis; outline:none; opacity:.85; }
+  overflow:hidden; text-overflow:ellipsis; outline:none; opacity:.85; cursor:text; }
+.node-title[contenteditable="false"] { cursor:grab; }
 .node-title:empty:before { content: attr(data-placeholder); opacity:.4; font-weight:500; }
-.node-title[contenteditable="true"] { white-space:normal; overflow:visible; cursor:text; opacity:1; background:var(--bg); border-radius:4px; }
+.node-title[contenteditable="true"] { white-space:normal; overflow:visible; opacity:1; background:var(--bg); border-radius:4px; }
 
 .color-row { position:absolute; top:-34px; left:0; display:none; gap:4px; background:var(--panel); padding:5px; border-radius:8px; border:1px solid var(--border); z-index:7; }
 .color-row.open { display:flex; }
@@ -381,7 +387,6 @@ input[type="range"] { accent-color:var(--accent); width:70px; }
 <div id="tools-bar">
   <button class="icon-btn active-tool" id="tool-select" title="Select (V)"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M5 3v16l3.5-3.5L11 21l2-1-2.5-5.5H16z"/></svg></button>
   <button class="icon-btn" id="tool-draw" title="Pen (P)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l1-4L16 5l3 3L8 19l-4 1z"/><path d="M14 7l3 3"/></svg></button>
-  <button class="icon-btn" id="tool-connect" title="Connect (L)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="6" cy="18" r="2.4"/><circle cx="18" cy="6" r="2.4"/><path d="M8 16.5L16 7.5"/></svg></button>
 </div>
 
 <div id="viewport" data-mode="select">
@@ -401,6 +406,7 @@ input[type="range"] { accent-color:var(--accent); width:70px; }
 <div class="menu" id="drive-panel">
   <button id="drive-save-btn">Save Current</button>
   <button id="drive-save-as-btn">Save As...</button>
+  <button id="drive-rename-btn">Rename Workspace...</button>
   <div class="menu-sep"></div>
   <div style="font-size:11px; opacity:0.6; padding:4px;">Workspaces</div>
   <div id="drive-file-list" style="max-height: 200px; overflow-y: auto; display:flex; flex-direction:column; gap:2px;"></div>
@@ -475,7 +481,6 @@ function setTool(mode) {
 }
 document.getElementById('tool-select').onclick = () => setTool('select');
 document.getElementById('tool-draw').onclick = () => setTool('draw');
-document.getElementById('tool-connect').onclick = () => setTool('connect');
 
 // ===================== HISTORY (undo/redo) =====================
 let undoStack = [], redoStack = [];
@@ -1063,7 +1068,6 @@ function renderNode(node) {
       titleEl.className = 'node-title'; titleEl.contentEditable = 'false';
       titleEl.dataset.placeholder = 'Untitled'; titleEl.textContent = node.title || '';
       titleEl.addEventListener('dblclick', (e) => { e.stopPropagation(); titleEl.contentEditable = 'true'; titleEl.focus(); document.execCommand('selectAll', false, null); });
-      titleEl.addEventListener('pointerdown', (e) => { if (titleEl.contentEditable === 'true') e.stopPropagation(); });
       titleEl.addEventListener('blur', () => { titleEl.contentEditable = 'false'; node.title = titleEl.textContent.trim(); scheduleAutosave(); });
       titleEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); titleEl.blur(); } if (e.key === 'Escape') { titleEl.textContent = node.title || ''; titleEl.blur(); } });
       header.appendChild(titleEl);
@@ -1078,7 +1082,7 @@ function renderNode(node) {
     ta.oninput = e => node.text = e.target.value;
     ta.ondblclick = (e) => { e.stopPropagation(); ta.readOnly = false; ta.focus(); };
     ta.onblur = () => { ta.readOnly = true; if(node.type==='comment' && !node.text) { node.collapsed = true; el.classList.add('comment-collapsed'); el.querySelector('div').style.display='block';} };
-    ta.onpointerdown = e => { if(ta.readOnly) e.preventDefault(); else e.stopPropagation(); };
+    ta.onpointerdown = e => { if(!ta.readOnly) e.stopPropagation(); };
     body.appendChild(ta);
   } else if (node.type === 'shape') {
     if (node.shape === 'circle') el.style.borderRadius = '50%';
@@ -1088,7 +1092,7 @@ function renderNode(node) {
     label.oninput = () => node.text = label.innerText;
     label.ondblclick = (e) => { e.stopPropagation(); label.contentEditable = "true"; label.focus(); };
     label.onblur = () => label.contentEditable = "false";
-    label.onpointerdown = e => { if(label.contentEditable === "false") e.preventDefault(); else e.stopPropagation(); };
+    label.onpointerdown = e => { if(label.contentEditable === "true") e.stopPropagation(); };
     body.appendChild(label);
   } else if (node.type === 'checklist') {
     const renderItems = () => {
@@ -1128,13 +1132,10 @@ function renderNode(node) {
     const srcBody = document.createElement('div'); srcBody.className = 'src-body';
     const titleInput = document.createElement('input'); titleInput.className = 'src-field src-title'; titleInput.placeholder = 'Title';
     titleInput.value = node.title || ''; titleInput.oninput = e => node.title = e.target.value;
-    titleInput.onpointerdown = e => e.stopPropagation();
     const metaInput = document.createElement('input'); metaInput.className = 'src-field'; metaInput.placeholder = 'Author, year';
     metaInput.value = node.meta || ''; metaInput.oninput = e => node.meta = e.target.value;
-    metaInput.onpointerdown = e => e.stopPropagation();
     const notes = document.createElement('textarea'); notes.className = 'src-notes'; notes.placeholder = 'Key quote / notes...';
     notes.value = node.notes || ''; notes.oninput = e => node.notes = e.target.value;
-    notes.onpointerdown = e => e.stopPropagation();
     srcBody.append(titleInput, metaInput, notes);
     body.style.padding = '0'; body.appendChild(srcBody);
   } else if (node.type === 'image') {
@@ -1143,7 +1144,19 @@ function renderNode(node) {
   }
   el.appendChild(body);
 
-  const handlePointerDown = (e) => {
+  el.addEventListener('pointerdown', (e) => {
+    const t = e.target;
+    // Let interactive tools handle themselves
+    if (t.tagName === 'BUTTON' || t.closest('.node-tools') || t.closest('.handle') || t.closest('.resize-handle') || t.closest('.color-row')) return;
+    
+    // Let native edit interactions pass through smoothly without triggering drag
+    const isEditing = (t.tagName === 'TEXTAREA' && !t.readOnly) || 
+                      (t.tagName === 'INPUT' && t.type !== 'checkbox' && !t.readOnly) || 
+                      (t.contentEditable === 'true');
+    if (isEditing) return; 
+
+    if (t.type === 'checkbox') return; // let checkbox toggle naturally
+
     if (keysDown[' ']) {
       e.stopPropagation();
       isPanning = true;
@@ -1151,16 +1164,14 @@ function renderNode(node) {
       viewport.classList.add('panning');
       return;
     }
-    if(toolMode === 'draw') return;
+    if (toolMode === 'draw') return;
     if (e.ctrlKey || toolMode === 'connect') { e.stopPropagation(); connecting = { fromId: node.id, line: createTempLine(e) }; return; }
     if (e.button !== 0) return;
+    
     e.stopPropagation();
     if (!selectedIds.has(node.id)) select(node.id, e.shiftKey);
     dragCandidate = { event: e, nodeId: node.id, duplicate: e.altKey, startX: e.clientX, startY: e.clientY };
-  };
-  header.addEventListener('pointerdown', handlePointerDown);
-  el.addEventListener('pointerdown', (e) => { if(e.target === el || e.target === body || node.collapsed) handlePointerDown(e); });
-  if (node.shape === 'diamond') el.addEventListener('pointerdown', handlePointerDown);
+  });
 
   el.addEventListener('dblclick', (e) => {
     e.stopPropagation();
@@ -1295,7 +1306,6 @@ function deleteSelected() {
   pushHistory();
   nodes = nodes.filter(n => !selectedIds.has(n.id));
   connections = connections.filter(c => !selectedIds.has(c.from) && !selectedIds.has(c.to));
-  // Delete drawings if needed (complex, omitting freehand deletion for simplicity)
   deselectAll(); renderAll(); scheduleAutosave();
 }
 
@@ -1657,12 +1667,30 @@ document.getElementById('drive-menu-btn').onclick = (e) => {
   document.getElementById('drive-panel').classList.toggle('open');
 };
 
+const FOLDER_NAME = 'Infinite Board Workspaces';
+let driveFolderId = null;
+
+async function getOrCreateDriveFolder() {
+  if (driveFolderId) return driveFolderId;
+  const q = `name='${FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+  const res = await gapi.client.drive.files.list({ q, spaces: 'drive', fields: 'files(id, name)' });
+  if (res.result.files && res.result.files.length > 0) {
+    driveFolderId = res.result.files[0].id;
+    return driveFolderId;
+  }
+  const folderMeta = { name: FOLDER_NAME, mimeType: 'application/vnd.google-apps.folder' };
+  const folderRes = await gapi.client.drive.files.create({ resource: folderMeta, fields: 'id' });
+  driveFolderId = folderRes.result.id;
+  return driveFolderId;
+}
+
 async function refreshDriveFiles() {
   const listDiv = document.getElementById('drive-file-list');
   listDiv.innerHTML = '<div style="padding:4px;font-size:12px;">Loading...</div>';
   try {
+    const folderId = await getOrCreateDriveFolder();
     const res = await gapi.client.drive.files.list({ 
-      q: "(appProperties has { key='isInfiniteBoard' and value='true' } or name='my_personal_board.json') and trashed=false", 
+      q: `'${folderId}' in parents and trashed=false`, 
       spaces: 'drive',
       fields: 'files(id, name)'
     });
@@ -1706,14 +1734,18 @@ async function performSave(asNew = false) {
   btn.textContent = 'Saving...';
 
   try {
+    const folderId = await getOrCreateDriveFolder();
     const boundary = 'foo_bar_baz';
     const metadata = { name: targetName, mimeType: 'application/json', appProperties: { isInfiniteBoard: 'true' } };
+    
+    const isPost = asNew || !currentFileId;
+    if (isPost) metadata.parents = [folderId];
+
     const body = "\r\n--" + boundary + "\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n" + 
                  JSON.stringify(metadata) + "\r\n--" + boundary + "\r\nContent-Type: application/json\r\n\r\n" + 
                  JSON.stringify({nodes, connections, drawings, groups, theme, bgStyle, lineStyle, snapEnabled, panX, panY, zoom}) + 
                  "\r\n--" + boundary + "--";
 
-    const isPost = asNew || !currentFileId;
     const path = isPost ? '/upload/drive/v3/files' : `/upload/drive/v3/files/${currentFileId}`;
     const method = isPost ? 'POST' : 'PATCH';
 
@@ -1740,6 +1772,33 @@ async function performSave(asNew = false) {
 
 document.getElementById('drive-save-btn').onclick = () => performSave(false);
 document.getElementById('drive-save-as-btn').onclick = () => performSave(true);
+
+document.getElementById('drive-rename-btn').onclick = async () => {
+  if (!currentFileId) { alert('Please save the workspace first.'); return; }
+  const newName = prompt('Enter new workspace name:', currentFileName);
+  if (!newName || newName === currentFileName) return;
+  
+  const btn = document.getElementById('drive-rename-btn');
+  const origTxt = btn.textContent;
+  btn.textContent = 'Renaming...';
+  
+  try {
+    await gapi.client.request({
+        path: `/drive/v3/files/${currentFileId}`,
+        method: 'PATCH',
+        body: JSON.stringify({ name: newName })
+    });
+    currentFileName = newName;
+    document.getElementById('drive-menu-btn').textContent = currentFileName + ' ▾';
+    refreshDriveFiles();
+    btn.textContent = 'Renamed!';
+    setTimeout(() => btn.textContent = origTxt, 2000);
+  } catch(e) {
+    btn.textContent = 'Error!';
+    setTimeout(() => btn.textContent = origTxt, 2000);
+    alert('Failed to rename workspace.');
+  }
+};
 
 applyTheme(); applyCanvasTransform();
 tryLoadAutosave();
