@@ -31,6 +31,7 @@ body { margin:0; overflow:hidden; background:var(--bg); color:var(--text);
   font-family:system-ui,-apple-system,sans-serif; touch-action:none; user-select:none; transition:background .2s; }
 
 #bg-layer { position:fixed; inset:0; z-index:0; pointer-events:none; }
+#trail-canvas { position:fixed; top:0; left:0; width:100vw; height:100vh; pointer-events:none; z-index:9999; }
 #viewport { width:100vw; height:100vh; position:relative; overflow:hidden; cursor:default; z-index:1; }
 #viewport[data-mode="pan"] { cursor:grab; }
 #viewport.panning { cursor:grabbing; }
@@ -88,10 +89,15 @@ button:active { transform:scale(.95); }
   width:230px; display:none; flex-direction:column; gap:14px; box-shadow:0 8px 32px rgba(0,0,0,.4); font-size:13px; }
 #settings-panel.open { display:flex; }
 #settings-panel h4 { margin:0 0 4px 0; font-size:12px; opacity:.6; text-transform:uppercase; letter-spacing:.05em; }
-.opt-row { display:flex; gap:6px; }
+.opt-row { display:flex; gap:6px; align-items:center; }
 .opt-row button { flex:1; padding:6px; font-size:12px; }
 .opt-row button.active { border-color:var(--accent); color:var(--accent); background:rgba(212,175,55,.1); }
 .switch-row { display:flex; align-items:center; justify-content:space-between; }
+
+/* Custom Background Color Picker */
+#custom-bg-color { border:1px solid var(--border); padding:0; width:28px; height:28px; border-radius:6px; cursor:pointer; background:none; outline:none; flex-shrink:0; }
+#custom-bg-color::-webkit-color-swatch-wrapper { padding: 2px; }
+#custom-bg-color::-webkit-color-swatch { border: none; border-radius: 4px; }
 
 /* ------------------------------------------------------------------------- */
 /* CSS: NODES & INTERACTION (BASE)                                           */
@@ -159,13 +165,25 @@ button:active { transform:scale(.95); }
 .node .label[contenteditable="false"]:active { cursor:grabbing; }
 .node img { width:100%; height:100%; display:block; pointer-events:none; }
 
-/* Checklists & Tables */
-.checklist-item { display:flex; align-items:center; gap:8px; margin-bottom:4px; }
-.checklist-item input[type="checkbox"] { cursor:pointer; accent-color:var(--accent); }
+/* Checklists - Stylish & Draggable */
+.checklist-item { display:flex; align-items:center; gap:8px; margin-bottom:6px; padding:4px 6px; border-radius:6px; transition:background 0.2s, box-shadow 0.2s; background:rgba(128,128,128,0.05); }
+.checklist-item:hover { background:rgba(128,128,128,0.1); }
+.checklist-item.dragging { opacity:0.5; background:var(--sel-box); border:1px dashed var(--accent); }
+.chk-drag-handle { cursor:grab; opacity:0.3; padding:2px; display:flex; align-items:center; color:var(--text); }
+.chk-drag-handle:hover { opacity:0.8; }
+.chk-drag-handle:active { cursor:grabbing; }
+.checklist-item input[type="checkbox"] { cursor:pointer; accent-color:var(--accent); flex-shrink:0; }
 .checklist-item span { flex:1; outline:none; font-size:14px; cursor:text; }
 .checklist-item span[contenteditable="false"] { cursor:grab; }
 .checklist-item span[contenteditable="true"] { border-bottom:1px solid var(--accent); }
-.add-chk-btn { background:none; border:none; color:var(--accent); text-align:left; padding:4px 0; font-size:12px; cursor:pointer; margin-top:auto;}
+.chk-actions { display:flex; gap:4px; opacity:0; transition:opacity 0.2s; margin-left:auto; }
+.checklist-item:hover .chk-actions { opacity:1; }
+.chk-action-btn { background:none; border:none; color:var(--text); opacity:0.5; cursor:pointer; padding:3px; display:flex; align-items:center; border-radius:4px; transition:all 0.15s; }
+.chk-action-btn:hover { opacity:1; color:var(--accent); background:rgba(128,128,128,0.2); }
+.add-chk-btn { background:rgba(128,128,128,0.05); border:1px dashed var(--border); color:var(--text); text-align:center; padding:8px; font-size:12px; cursor:pointer; margin-top:8px; border-radius:6px; transition:all 0.2s; width:100%; font-weight:600; opacity:0.7; }
+.add-chk-btn:hover { background:rgba(128,128,128,0.1); border-color:var(--accent); color:var(--accent); opacity:1; }
+
+/* Tables */
 .node table { width:100%; height:100%; border-collapse:collapse; table-layout:fixed; }
 .node td { border:1px solid var(--border); padding:4px; outline:none; text-align:center; font-size:13px; overflow:hidden; cursor:text; }
 .node td[contenteditable="false"] { cursor:grab; }
@@ -273,6 +291,7 @@ button:focus-visible, .ui-btn:focus-visible, input:focus-visible { outline:2px s
 <!-- HTML: MAIN VIEWPORT & CANVAS                                            -->
 <!-- ----------------------------------------------------------------------- -->
 <div id="bg-layer"></div>
+<canvas id="trail-canvas"></canvas>
 <div id="viewport" data-mode="select">
   <div id="canvas">
     <div id="marquee"></div>
@@ -436,7 +455,12 @@ button:focus-visible, .ui-btn:focus-visible, input:focus-visible { outline:2px s
 
 <div id="settings-panel">
   <div><h4>Theme</h4><div class="opt-row" id="theme-row"><button data-v="dark">Dark</button><button data-v="light">Light</button></div></div>
-  <div><h4>Background</h4><div class="opt-row" id="bg-row"><button data-v="none">None</button><button data-v="dots">Dots</button><button data-v="grid">Grid</button></div></div>
+  <div><h4>Background</h4>
+    <div class="opt-row" id="bg-row">
+      <button data-v="none">None</button><button data-v="dots">Dots</button><button data-v="grid">Grid</button>
+      <input type="color" id="custom-bg-color" title="Custom color" value="#121212">
+    </div>
+  </div>
   <div><h4>Connectors</h4><div class="opt-row" id="line-row"><button data-v="straight">Straight</button><button data-v="curved">Curved</button></div></div>
   <div class="switch-row"><span>Snap to grid</span><input type="checkbox" id="snap-toggle"></div>
   <div><h4>Backup</h4><div class="opt-row"><button id="export-btn">Export</button><button id="import-btn">Import</button></div></div>
@@ -495,6 +519,13 @@ button:focus-visible, .ui-btn:focus-visible, input:focus-visible { outline:2px s
 // ============================================================================== //
 //                           JS: GLOBAL STATE & CONFIG                            //
 // ============================================================================== //
+const CLIENT_ID = '500297009261-i1aa5fekjptp3i1kgpst248knc18gvt6.apps.googleusercontent.com';
+const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+
+let tokenClient = null;
+let currentFileId = null;
+let currentFileName = 'Untitled Board';
+
 let nodes = [], connections = [], drawings = [];
 let groups = {}; // gid -> { title, color }
 let selectedConnId = null;
@@ -503,6 +534,7 @@ let theme = 'dark', bgStyle = 'dots', lineStyle = 'straight', snapEnabled = fals
 let panX = window.innerWidth/2 - 500, panY = window.innerHeight/2 - 300, zoom = 1;
 let selectedIds = new Set(); 
 let idSeed = 1;
+let customBgColor = ''; 
 const uid = () => 'n' + (Date.now().toString(36)) + (idSeed++);
 
 const PALETTE = ['#1e1e1e', '#d4af37', '#e57373', '#64b5f6', '#81c784', '#ffb74d', '#ba68c8'];
@@ -560,7 +592,7 @@ function scheduleAutosave() {
   autosaveTimer = setTimeout(() => {
     try {
       localStorage.setItem('infiniteBoardPro_autosave', JSON.stringify({
-        nodes, connections, drawings, groups, theme, bgStyle, lineStyle, snapEnabled, panX, panY, zoom
+        nodes, connections, drawings, groups, theme, bgStyle, lineStyle, snapEnabled, panX, panY, zoom, customBgColor
       }));
     } catch(err) { /* storage unavailable, ignore */ }
   }, 800);
@@ -573,7 +605,7 @@ function tryLoadAutosave() {
   return false;
 }
 function exportBoard() {
-  const data = { nodes, connections, drawings, groups, theme, bgStyle, lineStyle, snapEnabled, panX, panY, zoom };
+  const data = { nodes, connections, drawings, groups, theme, bgStyle, lineStyle, snapEnabled, panX, panY, zoom, customBgColor };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -591,6 +623,36 @@ document.getElementById('import-input').onchange = (e) => {
 };
 
 // ============================================================================== //
+//                           JS: MOUSE TRAIL EFFECT                               //
+// ============================================================================== //
+const trailCanvas = document.getElementById('trail-canvas');
+const trailCtx = trailCanvas.getContext('2d');
+let trailPoints = [];
+function resizeTrailCanvas() { trailCanvas.width = window.innerWidth; trailCanvas.height = window.innerHeight; }
+window.addEventListener('resize', resizeTrailCanvas); resizeTrailCanvas();
+
+window.addEventListener('pointermove', (e) => {
+  trailPoints.push({ x: e.clientX, y: e.clientY, age: 0 });
+});
+
+function animateTrail() {
+  trailCtx.clearRect(0, 0, trailCanvas.width, trailCanvas.height);
+  for (let i = 0; i < trailPoints.length; i++) {
+    let p = trailPoints[i];
+    p.age += 1;
+    if (p.age > 25) continue;
+    let alpha = 1 - (p.age / 25);
+    trailCtx.beginPath();
+    trailCtx.arc(p.x, p.y, 4 * alpha, 0, Math.PI * 2);
+    trailCtx.fillStyle = `rgba(212, 175, 55, ${alpha * 0.6})`;
+    trailCtx.fill();
+  }
+  trailPoints = trailPoints.filter(p => p.age <= 25);
+  requestAnimationFrame(animateTrail);
+}
+animateTrail();
+
+// ============================================================================== //
 //                           JS: CANVAS TRANSFORM & RENDER                        //
 // ============================================================================== //
 const canvas = document.getElementById('canvas');
@@ -603,6 +665,8 @@ const marqueeEl = document.getElementById('marquee');
 function applyTheme() {
   document.body.setAttribute('data-theme', theme);
   document.querySelectorAll('#theme-row button').forEach(b => b.classList.toggle('active', b.dataset.v === theme));
+  if(customBgColor) document.body.style.setProperty('--bg', customBgColor);
+  else document.body.style.removeProperty('--bg');
   updateBackground();
 }
 function updateBackground() {
@@ -1173,16 +1237,53 @@ function renderNode(node) {
       body.innerHTML = '';
       node.items.forEach((item, i) => {
         const row = document.createElement('div'); row.className = 'checklist-item';
+        row.draggable = true;
+        
+        const dragHandle = document.createElement('div'); dragHandle.className = 'chk-drag-handle';
+        dragHandle.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="18" x2="16" y2="18"/></svg>';
+        
         const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = item.done;
-        cb.onchange = () => item.done = cb.checked;
+        cb.onchange = () => { pushHistory(); item.done = cb.checked; scheduleAutosave(); };
+        
         const txt = document.createElement('span'); txt.innerText = item.text; txt.contentEditable = "false";
         txt.ondblclick = (e) => { e.stopPropagation(); txt.contentEditable = "true"; txt.focus(); };
-        txt.onblur = () => { txt.contentEditable = "false"; item.text = txt.innerText; };
+        txt.onblur = () => { txt.contentEditable = "false"; item.text = txt.innerText; scheduleAutosave(); };
         txt.onpointerdown = e => { if (txt.contentEditable==="false") e.preventDefault(); else e.stopPropagation(); };
-        row.append(cb, txt); body.appendChild(row);
+        
+        const actions = document.createElement('div'); actions.className = 'chk-actions';
+        const dupBtn = document.createElement('button'); dupBtn.className = 'chk-action-btn'; dupBtn.title = 'Duplicate Task';
+        dupBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
+        dupBtn.onclick = (e) => { e.stopPropagation(); pushHistory(); node.items.splice(i+1, 0, {text: item.text, done: item.done}); renderItems(); scheduleAutosave(); };
+        
+        const delBtn = document.createElement('button'); delBtn.className = 'chk-action-btn'; delBtn.title = 'Delete Task';
+        delBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+        delBtn.onclick = (e) => { e.stopPropagation(); pushHistory(); node.items.splice(i, 1); renderItems(); scheduleAutosave(); };
+        
+        actions.append(dupBtn, delBtn);
+        row.append(dragHandle, cb, txt, actions);
+        
+        // Drag and Drop Logic
+        row.addEventListener('dragstart', (e) => {
+          row.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', i); e.stopPropagation();
+        });
+        row.addEventListener('dragend', (e) => { row.classList.remove('dragging'); e.stopPropagation(); });
+        row.addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; e.stopPropagation(); });
+        row.addEventListener('drop', (e) => {
+          e.preventDefault(); e.stopPropagation();
+          const fromIdx = parseInt(e.dataTransfer.getData('text/plain'));
+          const toIdx = i;
+          if(fromIdx === toIdx || isNaN(fromIdx)) return;
+          pushHistory();
+          const movedItem = node.items.splice(fromIdx, 1)[0];
+          node.items.splice(toIdx, 0, movedItem);
+          renderItems(); scheduleAutosave();
+        });
+
+        body.appendChild(row);
       });
-      const addBtn = document.createElement('button'); addBtn.className = 'add-chk-btn'; addBtn.innerText = '+ Add item';
-      addBtn.onclick = (e) => { e.stopPropagation(); node.items.push({text:'New item', done:false}); renderItems(); };
+      const addBtn = document.createElement('button'); addBtn.className = 'add-chk-btn'; addBtn.innerText = '+ Add task';
+      addBtn.onclick = (e) => { e.stopPropagation(); pushHistory(); node.items.push({text:'New task', done:false}); renderItems(); scheduleAutosave(); };
       body.appendChild(addBtn);
     };
     renderItems();
@@ -1645,11 +1746,18 @@ document.getElementById('theme-row').onclick = (e) => { if (e.target.dataset.v) 
 document.getElementById('bg-row').onclick = (e) => { if (e.target.dataset.v) { bgStyle = e.target.dataset.v; updateBackground(); } };
 document.getElementById('line-row').onclick = (e) => { if (e.target.dataset.v) { lineStyle = e.target.dataset.v; updateBackground(); drawConnections(); } };
 document.getElementById('snap-toggle').onchange = (e) => snapEnabled = e.target.checked;
+document.getElementById('custom-bg-color').addEventListener('input', (e) => {
+  customBgColor = e.target.value;
+  document.body.style.setProperty('--bg', customBgColor);
+  scheduleAutosave();
+});
 document.getElementById('clear-btn').onclick = () => { if (confirm('Clear board?')) { pushHistory(); nodes=[]; connections=[]; drawings=[]; deselectAll(); renderAll(); scheduleAutosave(); } };
 
 function loadBoardData(data) {
   nodes = data.nodes || []; connections = data.connections || []; drawings = data.drawings || []; groups = data.groups || {};
   theme = data.theme || 'dark'; bgStyle = data.bgStyle || 'dots'; lineStyle = data.lineStyle || 'straight'; snapEnabled = !!data.snapEnabled;
+  customBgColor = data.customBgColor || '';
+  if (customBgColor) document.getElementById('custom-bg-color').value = customBgColor;
   if (typeof data.panX === 'number') panX = data.panX; if (typeof data.panY === 'number') panY = data.panY; if (typeof data.zoom === 'number') zoom = data.zoom;
   document.getElementById('snap-toggle').checked = snapEnabled; applyTheme(); applyCanvasTransform(); renderAll();
 }
@@ -1724,7 +1832,7 @@ async function performSave(asNew = false) {
     const isPost = asNew || !currentFileId; if (isPost) metadata.parents = [folderId];
     const body = "\r\n--" + boundary + "\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n" + 
                  JSON.stringify(metadata) + "\r\n--" + boundary + "\r\nContent-Type: application/json\r\n\r\n" + 
-                 JSON.stringify({nodes, connections, drawings, groups, theme, bgStyle, lineStyle, snapEnabled, panX, panY, zoom}) + 
+                 JSON.stringify({nodes, connections, drawings, groups, theme, bgStyle, lineStyle, snapEnabled, panX, panY, zoom, customBgColor}) + 
                  "\r\n--" + boundary + "--";
 
     const path = isPost ? '/upload/drive/v3/files' : `/upload/drive/v3/files/${currentFileId}`;
